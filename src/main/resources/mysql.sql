@@ -1,0 +1,17 @@
+SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS `t_goods`;
+DROP TABLE IF EXISTS `t_goods_comment`;
+SET FOREIGN_KEY_CHECKS = 0;
+
+CREATE TABLE `t_goods`(
+    `id` INT PRIMARY KEY AUTO_INCREMENT ,
+    `image_url` VARCHAR(256) ,
+    `ware_id` VARCHAR(20)  ,
+    `name` VARCHAR(100)  ,
+    `price` VARCHAR(20)
+)ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE `t_goods_comment`(
+    `id` INTEGER PRIMARY KEY AUTO_INCREMENT ,
+    `content` LONGTEXT
+)ENGINE=InnoDB DEFAULT CHARSET=utf8;
