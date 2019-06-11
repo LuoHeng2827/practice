@@ -10,4 +10,11 @@ public class ThreadUtil {
             e.printStackTrace();
         }
     }
+    public static void waitSecond(long second){
+        try{
+            TimeUnit.SECONDS.sleep(second);
+        }catch(InterruptedException e){
+            e.printStackTrace();
+        }
+    }
 }
