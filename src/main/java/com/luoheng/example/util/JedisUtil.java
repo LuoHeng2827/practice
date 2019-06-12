@@ -12,7 +12,7 @@ public class JedisUtil {
         initJedisPool();
     }
 
-    public Jedis getResource(){
+    public static Jedis getResource(){
         return getInstance().getResource();
     }
 
@@ -23,10 +23,11 @@ public class JedisUtil {
 
     private static void initJedisPool(){
         JedisPoolConfig config=new JedisPoolConfig();
-        config.setMaxIdle(600);
-        config.setMaxTotal(600);
+        config.setMaxWaitMillis(10000L);
+        config.setMaxIdle(3000);
+        config.setMaxTotal(9000);
         config.setMinEvictableIdleTimeMillis(60000L);
-        config.setTimeBetweenEvictionRunsMillis(3000l);
+        config.setTimeBetweenEvictionRunsMillis(3000L);
         config.setNumTestsPerEvictionRun(-1);
         String passwords=PropertiesUtil.getValue("redis_passwords",null);
         String ip=PropertiesUtil.getValue("redis_ip","127.0.0.1");
@@ -37,7 +38,7 @@ public class JedisUtil {
             jedisPool=new JedisPool(config,ip,Integer.parseInt(port));
     }
 
-    private JedisPool getInstance(){
+    private static JedisPool getInstance(){
         if(jedisPool==null){
             synchronized (JedisUtil.class){
                 initJedisPool();

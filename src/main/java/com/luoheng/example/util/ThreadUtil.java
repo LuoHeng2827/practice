@@ -1,5 +1,6 @@
 package com.luoheng.example.util;
 
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 public class ThreadUtil {
@@ -16,5 +17,14 @@ public class ThreadUtil {
         }catch(InterruptedException e){
             e.printStackTrace();
         }
+    }
+    public static String getUUID(){
+        String uuid=UUID.randomUUID().toString().replace("-","");
+        return uuid;
+    }
+    public static void main(String[] args){
+        String uuid=getUUID();
+        LogUtil.i(uuid);
+        LogUtil.i(uuid.length()+"");
     }
 }

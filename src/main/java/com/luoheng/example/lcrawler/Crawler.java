@@ -1,14 +1,18 @@
 package com.luoheng.example.lcrawler;
 
 
-import java.util.Vector;
+import com.luoheng.example.util.ThreadUtil;
+
 
 public abstract class Crawler extends Thread{
+    private static final long DEFAULT_CRAWL_INTERVAL=1000L;
     private CrawlerController controller;
     private boolean over;
+    private long crawlInterval;
 
     public Crawler(CrawlerController controller){
         this.controller=controller;
+        init();
     }
 
     public Crawler(CrawlerController controller,String name){
@@ -16,29 +20,41 @@ public abstract class Crawler extends Thread{
         setName(name);
     }
 
+    public Crawler(CrawlerController controller,String name,long crawlInterval){
+        this(controller, name);
+        this.crawlInterval=crawlInterval;
+    }
+
+    public void init(){
+        over=false;
+        crawlInterval=DEFAULT_CRAWL_INTERVAL;
+    }
+
     public abstract String getTaskData();
 
-    public abstract String crawl(String taskData);
-
-    public abstract String handleData(String data);
-
-    public abstract void saveProcessData(String processData);
+    public abstract void crawl(String taskData);
 
     public boolean isOver() {
         return over;
     }
 
-    public void setOver(boolean over) {
-        this.over = over;
+    public void over() {
+        over=true;
+    }
+
+    public void setCrawlInterval(long crawlInterval) {
+        if(crawlInterval>0)
+            this.crawlInterval = crawlInterval;
     }
 
     @Override
     public void run() {
-        String rawData=crawl(getTaskData());
-        String processData=handleData(rawData);
-        saveProcessData(processData);
+        while(!over){
+            long startTime=System.currentTimeMillis();
+            crawl(getTaskData());
+            long endTime=System.currentTimeMillis();
+            if(endTime-startTime<crawlInterval)
+                ThreadUtil.waitMillis(crawlInterval-endTime+startTime);
+        }
     }
-
-
-    public  abstract Vector<Crawler> createVector(int count);
 }

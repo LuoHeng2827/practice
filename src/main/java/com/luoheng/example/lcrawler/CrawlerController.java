@@ -26,7 +26,7 @@ public class CrawlerController implements Runnable{
         return this;
     }
 
-    private void monitorCrawler(){
+    private void monitorCrawlerCount(){
         complete=true;
         for(Map.Entry<CrawlerFactory,Vector<Crawler>> entry:allCrawler.entrySet()){
             Vector<Crawler> crawlerVector=entry.getValue();
@@ -61,7 +61,7 @@ public class CrawlerController implements Runnable{
     public void run() {
         startCrawler();
         while(true){
-            monitorCrawler();
+            monitorCrawlerCount();
             if(complete)
                 break;
             ThreadUtil.waitMillis(monitorInterval);
