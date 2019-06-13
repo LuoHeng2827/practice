@@ -2,13 +2,17 @@ package com.luoheng.example.tuniu;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.luoheng.example.lcrawler.Crawler;
 import com.luoheng.example.lcrawler.CrawlerController;
+import com.luoheng.example.lcrawler.CrawlerFactory;
 import com.luoheng.example.util.HttpUtil;
 import com.luoheng.example.util.JedisUtil;
 import com.luoheng.example.util.ThreadUtil;
 import okhttp3.Response;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import redis.clients.jedis.Jedis;
 
 import java.io.IOException;
@@ -18,7 +22,8 @@ import java.util.Map;
 public class ProductDetailCrawler extends Crawler {
     private static final String FROM_TOUR_QUEUE="list_tuniu_tour_product_id";
     private static final String FROM_PKG_QUEUE="list_tuniu_pkg_product_id";
-    private static final String DETAIL_URL ="https://m.tuniu.com/wap-detail/api/self/detail/getProductInfo";
+    private static final String CITY_URL="https://m.tuniu.com/wap-detail/api/group/city";
+    private static final String DETAIL_URL="https://m.tuniu.com/wap-detail/api/self/detail/getProductInfo";
     private static final String PRICE_URL="https://m.tuniu.com/wap-detail/api/group/price";
     private static final String CALENDAR_URL="https://m.tuniu.com/wap-detail/api/group/calendar";
     private static final String JOURNEY_URL="https://m.tuniu.com/wap-detail/api/group/journey";
@@ -28,18 +33,19 @@ public class ProductDetailCrawler extends Crawler {
     public static final int TYPE_PKG=1;
     private int type;
     private Gson gson;
-    public ProductDetailCrawler(CrawlerController controller,int type) {
-        super(controller);
+    private Logger logger= LogManager.getLogger(ProductDetailCrawler.class);
+    public ProductDetailCrawler(CrawlerFactory factory,int type) {
+        super(factory);
         this.type=type;
     }
 
-    public ProductDetailCrawler(CrawlerController controller, String name,int type) {
-        super(controller, name);
+    public ProductDetailCrawler(CrawlerFactory factory,String name,int type) {
+        super(factory,name);
         this.type=type;
     }
 
-    public ProductDetailCrawler(CrawlerController controller, String name, long crawlInterval,int type) {
-        super(controller, name, crawlInterval);
+    public ProductDetailCrawler(CrawlerFactory factory,String name, long crawlInterval,int type) {
+        super(factory,name,crawlInterval);
         this.type=type;
     }
 
@@ -52,7 +58,7 @@ public class ProductDetailCrawler extends Crawler {
     @Override
     public String getTaskData() {
         Jedis jedis=JedisUtil.getResource();
-        while(true){
+        while(!isOver()){
             String productId;
             if(type==TYPE_TOUR)
                 productId=jedis.lpop(FROM_TOUR_QUEUE);
@@ -60,11 +66,8 @@ public class ProductDetailCrawler extends Crawler {
                 productId=jedis.lpop(FROM_PKG_QUEUE);
             if(productId!=null)
                 return productId;
-            if(isOver()){
-                interrupt();
-            }
-            ThreadUtil.waitMillis(1000);
         }
+        return null;
     }
 
     /**
@@ -78,8 +81,9 @@ public class ProductDetailCrawler extends Crawler {
             JsonObject jsonObject=secondCityList.get(i).getAsJsonObject();
             JsonArray thirdCityList=jsonObject.getAsJsonArray("thirdCityList");
             for(int j=0;j<thirdCityList.size();j++){
-                JsonObject object=thirdCityList.get(i).getAsJsonObject();
+                JsonObject object=thirdCityList.get(j).getAsJsonObject();
                 cityMap.put(object.get("bookCityName").getAsString(),object.get("bookCityCode").getAsInt());
+                return cityMap;
             }
         }
         return cityMap;
@@ -98,25 +102,39 @@ public class ProductDetailCrawler extends Crawler {
             result.addProperty("productLink", String.format(TEMPLATE_PKG_PRODUCT_LINK,taskData));
             result.addProperty("type","pkg");
         }
-        Map<String,Integer> cityMap=new HashMap<>();
+        Map<String,Integer> cityMap;
         Map<String,String> params=new HashMap<>();
         Map<String,String> headers=new HashMap<>();
-        params.put("d", String.format("{\"productId\":\"%s\",\"journeyId\":0,\"bookCityCode\":2500}",taskData));
+        params.put("productId",taskData);
+        params.put("bookCityCode","2500");
         headers.put("User-Agent","Chrome/74.0.3729.169 Mobile");
         headers.put("Referer","https://m.tuniu.com/h5/package/"+taskData);
         try{
-            Response response=HttpUtil.doGet(DETAIL_URL,params,headers);
+            Response response=HttpUtil.doGet(CITY_URL,params,headers);
             if(response.code()==200){
                 String responseStr=response.body().string();
                 JsonObject jsonObject=gson.fromJson(responseStr,JsonObject.class);
                 JsonObject data=jsonObject.getAsJsonObject("data");
-                String name=data.get("name").getAsString();
-                result.addProperty("name",name);
                 cityMap=getCityMap(data.getAsJsonObject("departCities")
                         .getAsJsonObject("allCities").getAsJsonArray("secondCityList"));
             }
-            else
+            else{
+                logger.info("failed to request "+response.request().url());
                 return;
+            }
+            params=new HashMap<>();
+            params.put("d", String.format("{\"productId\":\"%s\",\"journeyId\":0,\"bookCityCode\":2500}",taskData));
+            response=HttpUtil.doGet(DETAIL_URL,params,headers);
+            if(response.code()==200){
+                String responseStr=response.body().string();
+                JsonObject jsonObject=gson.fromJson(responseStr,JsonObject.class);
+                JsonObject data=jsonObject.getAsJsonObject("data");
+                result.add("name",data.get("name"));
+            }
+            else{
+                logger.info("failed to request "+response.request().url());
+                return;
+            }
             /**
              * 对每个出发地遍历
              */
@@ -132,7 +150,7 @@ public class ProductDetailCrawler extends Crawler {
                     JsonObject jsonObject=gson.fromJson(responseStr,JsonObject.class);
                     JsonObject data=jsonObject.getAsJsonObject("data");
                     JsonObject vendorInfo=data.getAsJsonObject("vendorInfo");
-                    JsonObject companyName=vendorInfo.getAsJsonObject("companyName");
+                    JsonElement companyName=vendorInfo.get("companyName");
                     if(companyName.getAsString()==null)
                         result.addProperty("companyName","null");
                     else
@@ -140,8 +158,12 @@ public class ProductDetailCrawler extends Crawler {
                     result.addProperty("fullName",vendorInfo.get("fullName").getAsString());
                 }
                 else{
-                    //todo
+                    logger.info("failed to request "+response.request().url());
+                    return;
                 }
+                params=new HashMap<>();
+                params.put("productId",taskData);
+                params.put("bookCityCode",cityCode+"");
                 response=HttpUtil.doGet(CALENDAR_URL,params,headers);
                 if(response.code()==200){
                     String responseStr=response.body().string();
@@ -152,8 +174,8 @@ public class ProductDetailCrawler extends Crawler {
                     for(int i=0;i<calendarInfos.size();i++){
                         JsonArray calendarDetails=calendarInfos.get(i)
                                 .getAsJsonObject().getAsJsonArray("calendarDetails");
-                        for(int j=0;j<calendarDetails.size();i++){
-                            JsonObject object=calendarDetails.get(i).getAsJsonObject();
+                        for(int j=0;j<calendarDetails.size();j++){
+                            JsonObject object=calendarDetails.get(j).getAsJsonObject();
                             JsonObject objectResult=new JsonObject();
                             objectResult.addProperty("planDate",object.get("planDate").getAsString());
                             objectResult.addProperty("adultPrice",object.get("adultPrice").getAsString());
@@ -163,20 +185,53 @@ public class ProductDetailCrawler extends Crawler {
                     result.add("calendar",calendarResult);
                 }
                 else{
-                    //todo
+                    logger.info("failed to request "+response.request().url());
+                    return;
                 }
                 response=HttpUtil.doGet(JOURNEY_URL,params,headers);
                 if(response.code()==200){
                     String responseStr=response.body().string();
                     JsonObject jsonObject=gson.fromJson(responseStr,JsonObject.class);
                     JsonObject data=jsonObject.getAsJsonObject("data");
+                    JsonArray journeyDetailList=data.getAsJsonArray("journeyDetailList");
+                    //journey detail result
+                    JsonArray journeyListResult=new JsonArray();
+                    for(int i=0;i<journeyDetailList.size();i++){
+                        //journey detail result
+                        JsonArray journeyDetailResult=new JsonArray();
+                        JsonObject listItem=journeyDetailList.get(i).getAsJsonObject();
+                        JsonObject journeyFourDetail=listItem.getAsJsonObject("journeyFourDetail");
+                        JsonArray overview=journeyFourDetail.getAsJsonArray("overview");
+                        for(int j=0;j<overview.size();j++){
+                            JsonObject item=overview.get(j).getAsJsonObject();
+                            //journey detail result item
+                            JsonObject objectResult=new JsonObject();
+                            JsonElement journeyDescription=item.get("journeyDescription");
+                            JsonElement scenic=item.get("scenic");
+                            objectResult.addProperty("journeyDescription",journeyDescription.getAsString());
+                            objectResult.add("scenic",scenic);
+                            journeyDetailResult.add(objectResult);
+                        }
+                        journeyListResult.add(journeyDetailResult);
+                    }
+                    result.add("journeyList",journeyListResult);
+                    saveData(result);
                 }
                 else{
-                    //todo
+                    logger.info("failed to request "+response.request().url());
+                    return;
                 }
             }
         }catch(IOException e){
             e.printStackTrace();
         }
+        logger.info("end");
+    }
+    private void saveData(JsonObject object){
+        logger.info(object.toString());
+    }
+    public static void main(String[] args){
+        ProductDetailCrawler crawler=new ProductDetailCrawler(null,TYPE_TOUR);
+        crawler.start();
     }
 }

@@ -5,10 +5,13 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.luoheng.example.lcrawler.Crawler;
 import com.luoheng.example.lcrawler.CrawlerController;
+import com.luoheng.example.lcrawler.CrawlerFactory;
 import com.luoheng.example.util.HttpUtil;
 import com.luoheng.example.util.JedisUtil;
 import com.luoheng.example.util.LogUtil;
 import okhttp3.Response;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import redis.clients.jedis.Jedis;
 
 import java.io.IOException;
@@ -29,13 +32,14 @@ public class ProductCrawler extends Crawler {
     private Queue<String> taskQueue;
     private Gson gson;
     private int type;
-    public ProductCrawler(CrawlerController controller,int type) {
-        super(controller);
+    private Logger logger=LogManager.getLogger(ProductCrawler.class);
+    public ProductCrawler(CrawlerFactory factory,int type) {
+        super(factory);
         this.type=type;
     }
 
-    public ProductCrawler(CrawlerController controller,int type,String name) {
-        super(controller, name);
+    public ProductCrawler(CrawlerFactory factory,int type,String name) {
+        super(factory,name);
         this.type=type;
     }
 
@@ -65,10 +69,12 @@ public class ProductCrawler extends Crawler {
             Response response=HttpUtil.doGet(TARGET_URL,params,headers);
             if(response.code()==200){
                 String responseStr=response.body().string();
-                LogUtil.i(responseStr);
                 JsonObject jsonObject=gson.fromJson(responseStr,JsonObject.class);
                 JsonObject data=jsonObject.getAsJsonObject("data");
                 int pageCount=data.get("pageCount").getAsInt();
+
+                pageCount=1;
+
                 for(int i=0;i<pageCount;i++){
                     JsonObject task=new JsonObject();
                     task.addProperty("url",TARGET_URL);
@@ -86,7 +92,12 @@ public class ProductCrawler extends Crawler {
 
     @Override
     public String getTaskData() {
-        return taskQueue.poll();
+        String taskData=taskQueue.poll();
+        if(taskData==null){
+            over();
+            getFactory().notifyOver();
+        }
+        return taskData;
     }
 
     @Override
@@ -103,19 +114,24 @@ public class ProductCrawler extends Crawler {
                 String responseStr=response.body().string();
                 JsonObject jsonObject=gson.fromJson(responseStr,JsonObject.class);
                 JsonObject data=jsonObject.getAsJsonObject("data");
-                JsonArray list=data.getAsJsonArray("list");
+                JsonArray list=null;
+                try{
+                    list=data.getAsJsonArray("list");
+                }catch(NullPointerException e){
+                    logger.info(responseStr);
+                }
                 for(int i=0;i<list.size();i++){
                     long productId=list.get(i).getAsJsonObject().get("productId").getAsLong();
-                    LogUtil.i(productId+"");
-                    if(type==TYPE_TOUR)
+                    if(type==TYPE_TOUR){
                         jedis.rpush(TO_TOUR_QUEUE,productId+"");
+                    }
                     else
                         jedis.rpush(TO_PKG_QUEUE,productId+"");
 
                 }
             }
             else{
-                //todo
+                logger.info("failed to request "+response.request().url());
             }
         }catch(IOException e){
             e.printStackTrace();
@@ -123,8 +139,7 @@ public class ProductCrawler extends Crawler {
     }
 
     public static void main(String[] args){
-        CrawlerController controller=new CrawlerController();
-        ProductCrawler crawler=new ProductCrawler(controller,ProductCrawler.TYPE_TOUR);
+        ProductCrawler crawler=new ProductCrawler(null,ProductCrawler.TYPE_TOUR);
         crawler.start();
     }
 }

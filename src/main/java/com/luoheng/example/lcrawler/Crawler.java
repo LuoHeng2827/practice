@@ -2,26 +2,38 @@ package com.luoheng.example.lcrawler;
 
 
 import com.luoheng.example.util.ThreadUtil;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 
 public abstract class Crawler extends Thread{
-    private static final long DEFAULT_CRAWL_INTERVAL=1000L;
-    private CrawlerController controller;
+    private static final long DEFAULT_CRAWL_INTERVAL=100L;
+    /**
+     * 爬虫结束标识符
+     */
     private boolean over;
+    /**
+     * 爬取间隔
+     */
     private long crawlInterval;
+    /**
+     * 负责该爬虫的工厂
+     */
+    private CrawlerFactory factory;
+    private Logger logger=LogManager.getLogger(Crawler.class);
 
-    public Crawler(CrawlerController controller){
-        this.controller=controller;
+    public Crawler(CrawlerFactory factory){
         init();
+        this.factory=factory;
     }
 
-    public Crawler(CrawlerController controller,String name){
-        this(controller);
+    public Crawler(CrawlerFactory factory,String name){
+        this(factory);
         setName(name);
     }
 
-    public Crawler(CrawlerController controller,String name,long crawlInterval){
-        this(controller, name);
+    public Crawler(CrawlerFactory factory,String name,long crawlInterval){
+        this(factory,name);
         this.crawlInterval=crawlInterval;
     }
 
@@ -51,10 +63,17 @@ public abstract class Crawler extends Thread{
     public void run() {
         while(!over){
             long startTime=System.currentTimeMillis();
-            crawl(getTaskData());
+            String taskData=getTaskData();
+            if(taskData!=null)
+                crawl(taskData);
             long endTime=System.currentTimeMillis();
             if(endTime-startTime<crawlInterval)
                 ThreadUtil.waitMillis(crawlInterval-endTime+startTime);
         }
+        this.interrupt();
+    }
+
+    public CrawlerFactory getFactory() {
+        return factory;
     }
 }
