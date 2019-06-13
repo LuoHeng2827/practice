@@ -13,3 +13,4 @@ gen
 /target/
 /src/main/resources/config.properties
 
+/lib/

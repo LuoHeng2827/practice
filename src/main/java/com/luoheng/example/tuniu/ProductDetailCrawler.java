@@ -5,11 +5,9 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.luoheng.example.lcrawler.Crawler;
-import com.luoheng.example.lcrawler.CrawlerController;
 import com.luoheng.example.lcrawler.CrawlerFactory;
 import com.luoheng.example.util.HttpUtil;
 import com.luoheng.example.util.JedisUtil;
-import com.luoheng.example.util.ThreadUtil;
 import okhttp3.Response;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -83,11 +81,12 @@ public class ProductDetailCrawler extends Crawler {
             for(int j=0;j<thirdCityList.size();j++){
                 JsonObject object=thirdCityList.get(j).getAsJsonObject();
                 cityMap.put(object.get("bookCityName").getAsString(),object.get("bookCityCode").getAsInt());
-                return cityMap;
             }
         }
         return cityMap;
     }
+
+
 
     //taskData 产品编号
     @Override

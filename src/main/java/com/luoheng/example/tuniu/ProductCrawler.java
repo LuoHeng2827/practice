@@ -73,8 +73,6 @@ public class ProductCrawler extends Crawler {
                 JsonObject data=jsonObject.getAsJsonObject("data");
                 int pageCount=data.get("pageCount").getAsInt();
 
-                pageCount=1;
-
                 for(int i=0;i<pageCount;i++){
                     JsonObject task=new JsonObject();
                     task.addProperty("url",TARGET_URL);
