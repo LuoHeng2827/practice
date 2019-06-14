@@ -8,8 +8,8 @@ import org.apache.logging.log4j.Logger;
 import java.util.Vector;
 
 public abstract class BasicCrawlerFactory<T extends Crawler> implements CrawlerFactory<T> {
-    protected boolean stop;
-    protected boolean over;
+    private boolean stop;
+    private boolean over;
     private CrawlerController controller;
     private String name;
     private Logger logger=LogManager.getLogger(BasicCrawlerFactory.class);
@@ -36,7 +36,7 @@ public abstract class BasicCrawlerFactory<T extends Crawler> implements CrawlerF
     public void notifyOver(){
         if(isOver()||isStop())
             return;
-        this.stop=true;
+        stop=true;
         logger.info(this.name+" is stopping...");
         Vector<T> crawlerVector=(Vector<T>)controller.getFactoryVector(this);
         for(T crawler:crawlerVector){

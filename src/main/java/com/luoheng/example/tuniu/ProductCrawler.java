@@ -1,14 +1,10 @@
 package com.luoheng.example.tuniu;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
+import com.google.gson.*;
 import com.luoheng.example.lcrawler.Crawler;
-import com.luoheng.example.lcrawler.CrawlerController;
 import com.luoheng.example.lcrawler.CrawlerFactory;
 import com.luoheng.example.util.HttpUtil;
 import com.luoheng.example.util.JedisUtil;
-import com.luoheng.example.util.LogUtil;
 import okhttp3.Response;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -112,12 +108,10 @@ public class ProductCrawler extends Crawler {
                 String responseStr=response.body().string();
                 JsonObject jsonObject=gson.fromJson(responseStr,JsonObject.class);
                 JsonObject data=jsonObject.getAsJsonObject("data");
-                JsonArray list=null;
-                try{
-                    list=data.getAsJsonArray("list");
-                }catch(NullPointerException e){
-                    logger.info(responseStr);
+                if(data.get("list") instanceof JsonNull){
+                    return;
                 }
+                JsonArray list=data.getAsJsonArray("list");
                 for(int i=0;i<list.size();i++){
                     long productId=list.get(i).getAsJsonObject().get("productId").getAsLong();
                     if(type==TYPE_TOUR){

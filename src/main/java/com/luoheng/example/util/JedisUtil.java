@@ -1,11 +1,10 @@
 package com.luoheng.example.util;
 
-import org.springframework.stereotype.Component;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
 
-@Component
+
 public class JedisUtil {
     private static JedisPool jedisPool;
     static{

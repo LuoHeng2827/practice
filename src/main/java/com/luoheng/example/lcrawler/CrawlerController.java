@@ -4,6 +4,8 @@ import com.luoheng.example.util.ThreadUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.io.*;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Vector;
@@ -12,9 +14,37 @@ import java.util.Vector;
  *
  */
 public class CrawlerController extends Thread{
+    /**
+     * 默认的监视函数执行间隔
+     */
     private static final long DEFAULT_MONITOR_INTERVAL=1000*5;
+    /**
+     * 默认的遗失任务的保存路径
+     */
+    private static final String DEFAULT_SAVE_LOST_TASK_PATH="./lost_task.txt";
+    /**
+     * 监视函数执行间隔
+     */
     private long monitorInterval;
+    /**
+     * 判断爬取工作是否完成
+     */
     private boolean complete;
+    /**
+     * 用来判断是否保存遗失任务的标识符，默认不保存
+     */
+    private boolean saveLostTask;
+    /**
+     * 遗失任务的保存路径
+     */
+    private String lostTaskPath;
+    /**
+     * 日志存储路径
+     */
+    private String logFilePath;
+    /**
+     * 用来保存爬虫工作链，Key为爬虫工厂，Value为爬虫数组
+     */
     private Map<CrawlerFactory,Vector<Crawler>> allCrawler=new LinkedHashMap<>();
     private Logger logger=LogManager.getLogger(CrawlerController.class);
 
@@ -27,8 +57,26 @@ public class CrawlerController extends Thread{
         setName(name);
     }
 
+    public CrawlerController saveLostTask(boolean saveLostTask){
+        this.saveLostTask=saveLostTask;
+        return this;
+    }
+
+    public CrawlerController monitorInterval(long monitorInterval){
+        this.monitorInterval=monitorInterval;
+        return this;
+    }
+
+    public CrawlerController lostTaskPath(String lostTaskPath){
+        this.lostTaskPath=lostTaskPath;
+        return this;
+    }
+
     private void defaultInit(){
         monitorInterval=DEFAULT_MONITOR_INTERVAL;
+        lostTaskPath=DEFAULT_SAVE_LOST_TASK_PATH;
+        complete=false;
+        saveLostTask=false;
     }
 
     /**
@@ -81,13 +129,23 @@ public class CrawlerController extends Thread{
             CrawlerFactory factory=entry.getKey();
             if(factory.isOver())
                 continue;
-            for(Crawler crawler:crawlerVector){
+            Iterator<Crawler> iterator=crawlerVector.iterator();
+            Vector<Crawler> newCrawlerVector=new Vector<>();
+            while(iterator.hasNext()){
+                Crawler crawler=iterator.next();
                 if(!crawler.isAlive()){
                     if(!crawler.isOver()){
-                        crawlerVector.remove(crawler);
+                        if(saveLostTask){
+                            try{
+                                saveLostTask(crawler.getCurrentTask());
+                            }catch(IOException e){
+                                e.printStackTrace();
+                            }
+                        }
+                        iterator.remove();
                         Crawler newCrawler=factory.newInstance();
+                        newCrawlerVector.add(newCrawler);
                         newCrawler.start();
-                        crawlerVector.add(newCrawler);
                         complete=false;
                     }
                 }
@@ -95,7 +153,17 @@ public class CrawlerController extends Thread{
                     complete=false;
                 }
             }
+            crawlerVector.addAll(newCrawlerVector);
         }
+    }
+
+    private void saveLostTask(String lostTask) throws IOException {
+        File file=new File(lostTaskPath);
+        if(!file.exists())
+            file.createNewFile();
+        BufferedWriter fileWriter=new BufferedWriter(new FileWriter(file));
+        fileWriter.write(lostTask+"\n");
+        fileWriter.close();
     }
 
     /**

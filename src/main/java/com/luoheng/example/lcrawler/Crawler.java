@@ -9,6 +9,10 @@ import org.apache.logging.log4j.Logger;
 public abstract class Crawler extends Thread{
     private static final long DEFAULT_CRAWL_INTERVAL=100L;
     /**
+     * 爬虫的当前任务
+     */
+    private String currentTask;
+    /**
      * 爬虫结束标识符
      */
     private boolean over;
@@ -63,17 +67,21 @@ public abstract class Crawler extends Thread{
     public void run() {
         while(!over){
             long startTime=System.currentTimeMillis();
-            String taskData=getTaskData();
-            if(taskData!=null)
-                crawl(taskData);
+            currentTask=getTaskData();
+            if(currentTask!=null)
+                crawl(currentTask);
             long endTime=System.currentTimeMillis();
             if(endTime-startTime<crawlInterval)
                 ThreadUtil.waitMillis(crawlInterval-endTime+startTime);
         }
-        this.interrupt();
+        interrupt();
     }
 
     public CrawlerFactory getFactory() {
         return factory;
+    }
+
+    public String getCurrentTask() {
+        return currentTask;
     }
 }

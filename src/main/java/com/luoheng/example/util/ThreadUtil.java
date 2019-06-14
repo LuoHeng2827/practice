@@ -1,9 +1,13 @@
 package com.luoheng.example.util;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 public class ThreadUtil {
+    private Logger logger=LogManager.getLogger(ThreadUtil.class);
     public static void waitMillis(long millis){
         try{
             TimeUnit.MILLISECONDS.sleep(millis);
@@ -24,7 +28,5 @@ public class ThreadUtil {
     }
     public static void main(String[] args){
         String uuid=getUUID();
-        LogUtil.i(uuid);
-        LogUtil.i(uuid.length()+"");
     }
 }

@@ -1,8 +1,9 @@
 package com.luoheng.example.test;
 
 import com.luoheng.example.util.HttpUtil;
-import com.luoheng.example.util.LogUtil;
 import okhttp3.Response;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -12,7 +13,7 @@ import java.util.Map;
 
 public class GetTest implements Runnable{
     private static final String url="https://h5.m.taobao.com/trip/rx-search/travel-list/index.html?keyword=wuhan&fromSug=1&_wx_tpl=https%3A%2F%2Fh5.m.taobao.com%2Ftrip%2Frx-search%2Ftravel-list%2Findex.weex.js&globalSearchSource=sug_trip_scenic&nav=SCENIC&spm=181.8512603.x2112542.dHLItem-historyList-0-0&gsclickquery=wuhan&buyerLoc=%E5%8C%97%E4%BA%AC&ttid=seo.000000358&_projVer=0.1.90";
-
+    private Logger logger=LogManager.getLogger(GetTest.class);
     private String requestData(){
         Map<String,String> params=new HashMap<>();
         Map<String,String> headers=new HashMap<>();
@@ -26,11 +27,11 @@ public class GetTest implements Runnable{
             Response response= HttpUtil.doGet(url,params,headers);
             if(response.code()==200){
                 String result=response.body().string();
-                LogUtil.i(result);
+                logger.info(result);
                 return result;
             }
             else{
-                LogUtil.i("error: response code is "+response.code());
+                logger.info("error: response code is "+response.code());
             }
         }catch(IOException e){
             e.printStackTrace();

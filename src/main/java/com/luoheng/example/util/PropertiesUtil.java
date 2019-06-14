@@ -1,11 +1,11 @@
 package com.luoheng.example.util;
 
-import org.springframework.stereotype.Component;
-
-import java.io.*;
+import java.io.BufferedInputStream;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Properties;
 
-@Component
 public class PropertiesUtil {
     private static Properties configPros=new Properties();
     static {
@@ -27,7 +27,5 @@ public class PropertiesUtil {
         return configPros.getProperty(key,defaultValue);
     }
     public static void main(String[] args){
-        LogUtil.i(getValue("redis_ip"));
-        LogUtil.i(getValue("redis_passwords"));
     }
 }
