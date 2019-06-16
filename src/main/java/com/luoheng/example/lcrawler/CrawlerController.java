@@ -1,14 +1,13 @@
 package com.luoheng.example.lcrawler;
 
+import com.luoheng.example.util.JedisUtil;
 import com.luoheng.example.util.ThreadUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import redis.clients.jedis.Jedis;
 
 import java.io.*;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Vector;
+import java.util.*;
 
 /**
  *
@@ -45,7 +44,8 @@ public class CrawlerController extends Thread{
     /**
      * 用来保存爬虫工作链，Key为爬虫工厂，Value为爬虫数组
      */
-    private Map<CrawlerFactory,Vector<Crawler>> allCrawler=new LinkedHashMap<>();
+    private Map<CrawlerFactory,Vector<Crawler>> allCrawlers =new LinkedHashMap<>();
+    private Map<CrawlerFactory,Map<String,Integer>> relatedRedisKey=new LinkedHashMap<>();
     private Logger logger=LogManager.getLogger(CrawlerController.class);
 
     public CrawlerController(){
@@ -87,7 +87,7 @@ public class CrawlerController extends Thread{
      */
     public CrawlerController add(CrawlerFactory factory,int count){
         Vector<Crawler> crawlerVector=factory.newVector(count);
-        allCrawler.put(factory,crawlerVector);
+        allCrawlers.put(factory,crawlerVector);
         return this;
     }
 
@@ -97,7 +97,7 @@ public class CrawlerController extends Thread{
      */
     public void notifyNextOver(CrawlerFactory factory){
         boolean isNext=false;
-        for(Map.Entry<CrawlerFactory,Vector<Crawler>> entry:allCrawler.entrySet()){
+        for(Map.Entry<CrawlerFactory,Vector<Crawler>> entry: allCrawlers.entrySet()){
             if(isNext){
                 entry.getKey().notifyOver();
                 break;
@@ -108,11 +108,34 @@ public class CrawlerController extends Thread{
         }
     }
 
+    private void monitorRedis(){
+        Jedis jedis=JedisUtil.getResource();
+    }
+
+    private void monitorRedisKey(){
+        Jedis jedis=JedisUtil.getResource();
+        for(Map.Entry<CrawlerFactory,Map<String,Integer>> entryI:relatedRedisKey.entrySet()){
+            CrawlerFactory factory=entryI.getKey();
+            Map<String,Integer> redisKeyMap=entryI.getValue();
+            for(Map.Entry<String,Integer> entryJ:redisKeyMap.entrySet()){
+                String redisKey=entryJ.getKey();
+                int maxCount=entryJ.getValue();
+                if(jedis.llen(redisKey)>=maxCount){
+                    factory.pause();
+                }
+                else{
+                    if(factory.isPause())
+                        factory.resume();
+                }
+            }
+        }
+    }
+
     /**
      * 监视爬虫工厂是否关闭，如果关闭，则通知下一个爬虫工厂关闭
      */
     private void monitorCrawlerFactory(){
-        for(Map.Entry<CrawlerFactory,Vector<Crawler>> entry:allCrawler.entrySet()){
+        for(Map.Entry<CrawlerFactory,Vector<Crawler>> entry: allCrawlers.entrySet()){
             entry.getKey().inspect();
             if(entry.getKey().isOver())
                 notifyNextOver(entry.getKey());
@@ -124,7 +147,7 @@ public class CrawlerController extends Thread{
      */
     private void monitorCrawlerCount(){
         complete=true;
-        for(Map.Entry<CrawlerFactory,Vector<Crawler>> entry:allCrawler.entrySet()){
+        for(Map.Entry<CrawlerFactory,Vector<Crawler>> entry: allCrawlers.entrySet()){
             Vector<Crawler> crawlerVector=entry.getValue();
             CrawlerFactory factory=entry.getKey();
             if(factory.isOver())
@@ -172,7 +195,7 @@ public class CrawlerController extends Thread{
      * @return
      */
     public Vector<? extends Crawler> getFactoryVector(CrawlerFactory factory){
-        for(Map.Entry<CrawlerFactory,Vector<Crawler>> entry:allCrawler.entrySet()){
+        for(Map.Entry<CrawlerFactory,Vector<Crawler>> entry: allCrawlers.entrySet()){
             if(entry.getKey().equals(factory))
                 return entry.getValue();
         }
@@ -189,7 +212,7 @@ public class CrawlerController extends Thread{
      * 启动爬虫线程
      */
     public void startCrawler(){
-        for(Map.Entry<CrawlerFactory,Vector<Crawler>> entry:allCrawler.entrySet()){
+        for(Map.Entry<CrawlerFactory,Vector<Crawler>> entry: allCrawlers.entrySet()){
             Vector<Crawler> crawlerVector=entry.getValue();
             for(Crawler crawler:crawlerVector){
                 crawler.start();

@@ -7,6 +7,7 @@ import redis.clients.jedis.JedisPoolConfig;
 
 public class JedisUtil {
     private static JedisPool jedisPool;
+    private static JedisPoolConfig config;
     static{
         initJedisPool();
     }
@@ -21,7 +22,7 @@ public class JedisUtil {
     }
 
     private static void initJedisPool(){
-        JedisPoolConfig config=new JedisPoolConfig();
+        config=new JedisPoolConfig();
         config.setMaxWaitMillis(10000L);
         config.setMaxIdle(3000);
         config.setMaxTotal(9000);
@@ -46,6 +47,7 @@ public class JedisUtil {
         return jedisPool;
     }
 
-
-
+    public static JedisPool getJedisPool() {
+        return getInstance();
+    }
 }

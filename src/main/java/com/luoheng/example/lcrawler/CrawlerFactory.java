@@ -25,6 +25,10 @@ public interface CrawlerFactory<T extends Crawler> {
      */
     void notifyOver();
 
+    void pause();
+
+    void resume();
+
     /**
      * 判断工厂是否关闭
      * @return
@@ -36,6 +40,8 @@ public interface CrawlerFactory<T extends Crawler> {
      * @return
      */
     boolean isOver();
+
+    boolean isPause();
 
     /**
      * 检查爬虫状态并进行相应的操作

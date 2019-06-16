@@ -73,7 +73,7 @@ public class ProductDetailCrawler extends Crawler {
         return null;
     }
 
-    private Map<String,Integer> getCityInfo(String taskData,JsonObject result) throws IOException{
+    private Map<String,Integer> getCityInfo(String taskData) throws IOException{
         Map<String,Integer> cityMap=new HashMap<>();
         Map<String,String> params=new HashMap<>();
         Map<String,String> headers=new HashMap<>();
@@ -251,7 +251,7 @@ public class ProductDetailCrawler extends Crawler {
             result.addProperty("type","pkg");
         }
         try{
-            Map<String,Integer> cityInfo=getCityInfo(taskData,result);
+            Map<String,Integer> cityInfo=getCityInfo(taskData);
             getProductBasicInfo(taskData,result);
             getProductJourney(taskData,result);
             getProductVendor(cityInfo,taskData,result);

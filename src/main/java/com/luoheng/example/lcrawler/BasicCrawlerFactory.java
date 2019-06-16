@@ -10,6 +10,7 @@ import java.util.Vector;
 public abstract class BasicCrawlerFactory<T extends Crawler> implements CrawlerFactory<T> {
     private boolean stop;
     private boolean over;
+    private boolean pause;
     private CrawlerController controller;
     private String name;
     private Logger logger=LogManager.getLogger(BasicCrawlerFactory.class);
@@ -24,6 +25,7 @@ public abstract class BasicCrawlerFactory<T extends Crawler> implements CrawlerF
     private void init(){
         stop=false;
         over=false;
+        pause=false;
         name="CrawlerFactory";
     }
 
@@ -42,6 +44,20 @@ public abstract class BasicCrawlerFactory<T extends Crawler> implements CrawlerF
         for(T crawler:crawlerVector){
             crawler.over();
         }
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public void pause(){
+        pause=true;
+        Vector<T> crawlerVector=(Vector<T>)controller.getFactoryVector(this);
+        for(T crawler:crawlerVector){
+            crawler.pauseThis();
+        }
+    }
+    @Override
+    public void resume(){
+        pause=false;
     }
 
     /**
@@ -77,4 +93,10 @@ public abstract class BasicCrawlerFactory<T extends Crawler> implements CrawlerF
     public boolean isOver() {
         return over;
     }
+
+    @Override
+    public boolean isPause() {
+        return pause;
+    }
+
 }

@@ -24,6 +24,7 @@ public abstract class Crawler extends Thread{
      * 负责该爬虫的工厂
      */
     private CrawlerFactory factory;
+    private boolean pause;
     private Logger logger=LogManager.getLogger(Crawler.class);
 
     public Crawler(CrawlerFactory factory){
@@ -43,6 +44,7 @@ public abstract class Crawler extends Thread{
 
     public void init(){
         over=false;
+        pause=false;
         crawlInterval=DEFAULT_CRAWL_INTERVAL;
     }
 
@@ -63,9 +65,24 @@ public abstract class Crawler extends Thread{
             this.crawlInterval = crawlInterval;
     }
 
+    public void pauseThis(){
+        pause=true;
+    }
+
+    public void resumeThis(){
+        pause=false;
+    }
+
+    public boolean isPause() {
+        return pause;
+    }
+
     @Override
     public void run() {
         while(!over){
+            while(pause){
+                ThreadUtil.waitMillis(1000);
+            }
             long startTime=System.currentTimeMillis();
             currentTask=getTaskData();
             if(currentTask!=null)
@@ -74,7 +91,6 @@ public abstract class Crawler extends Thread{
             if(endTime-startTime<crawlInterval)
                 ThreadUtil.waitMillis(crawlInterval-endTime+startTime);
         }
-        interrupt();
     }
 
     public CrawlerFactory getFactory() {
