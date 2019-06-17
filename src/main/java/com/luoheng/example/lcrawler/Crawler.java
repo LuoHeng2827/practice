@@ -8,6 +8,10 @@ import org.apache.logging.log4j.Logger;
 
 public abstract class Crawler extends Thread{
     private static final long DEFAULT_CRAWL_INTERVAL=100L;
+    private static final long DEFAULT_PAUSE_SLEEP_TIME_UNIT=1000L;
+    private static final long DEFAULT_MAX_PAUSE_TIME=20000L;
+    private long pauseTimeUnit;
+    private long pauseTime;
     /**
      * 爬虫的当前任务
      */
@@ -16,6 +20,8 @@ public abstract class Crawler extends Thread{
      * 爬虫结束标识符
      */
     private boolean over;
+
+    private boolean stop;
     /**
      * 爬取间隔
      */
@@ -46,6 +52,7 @@ public abstract class Crawler extends Thread{
         over=false;
         pause=false;
         crawlInterval=DEFAULT_CRAWL_INTERVAL;
+        pauseTimeUnit=DEFAULT_PAUSE_SLEEP_TIME_UNIT;
     }
 
     public abstract String getTaskData();
@@ -56,7 +63,15 @@ public abstract class Crawler extends Thread{
         return over;
     }
 
-    public void over() {
+    public boolean isStop(){
+        return stop;
+    }
+
+    public void stopThis(){
+        stop=true;
+    }
+
+    public void overThis() {
         over=true;
     }
 
@@ -73,6 +88,10 @@ public abstract class Crawler extends Thread{
         pause=false;
     }
 
+    public void setPauseTimeUnit(long pauseTimeUnit){
+        this.pauseTimeUnit=pauseTimeUnit;
+    }
+
     public boolean isPause() {
         return pause;
     }
@@ -80,12 +99,23 @@ public abstract class Crawler extends Thread{
     @Override
     public void run() {
         while(!over){
-            while(pause){
-                ThreadUtil.waitMillis(1000);
+            if(pause){
+                ThreadUtil.waitMillis(pauseTimeUnit);
+                pauseTime+=pauseTimeUnit;
+                if(pauseTime>=DEFAULT_MAX_PAUSE_TIME){
+                    //todo 发送警告
+                }
+                continue;
             }
             long startTime=System.currentTimeMillis();
             currentTask=getTaskData();
-            if(currentTask!=null)
+            if(currentTask==null){
+                if(isStop()){
+                    overThis();
+                    continue;
+                }
+            }
+            else
                 crawl(currentTask);
             long endTime=System.currentTimeMillis();
             if(endTime-startTime<crawlInterval)

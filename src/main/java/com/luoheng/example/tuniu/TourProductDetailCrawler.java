@@ -1,9 +1,6 @@
 package com.luoheng.example.tuniu;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
+import com.google.gson.*;
 import com.luoheng.example.lcrawler.Crawler;
 import com.luoheng.example.lcrawler.CrawlerFactory;
 import com.luoheng.example.util.DBPoolUtil;
@@ -13,6 +10,10 @@ import com.luoheng.example.util.ThreadUtil;
 import okhttp3.Response;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 import redis.clients.jedis.Jedis;
 
 import java.io.IOException;
@@ -21,35 +22,30 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-public class ProductDetailCrawler extends Crawler {
+public class TourProductDetailCrawler extends Crawler {
     private static final String FROM_TOUR_QUEUE="list_tuniu_tour_product_id";
-    private static final String FROM_PKG_QUEUE="list_tuniu_pkg_product_id";
+    private static final String HTML_URL="https://m.tuniu.com/tour/%s";
     private static final String CITY_URL="https://m.tuniu.com/wap-detail/api/group/city";
     private static final String DETAIL_URL="https://m.tuniu.com/wap-detail/api/self/detail/getProductInfo";
     private static final String PRICE_URL="https://m.tuniu.com/wap-detail/api/group/price";
     private static final String CALENDAR_URL="https://m.tuniu.com/wap-detail/api/group/calendar";
     private static final String JOURNEY_URL="https://m.tuniu.com/wap-detail/api/group/journey";
     private static final String TEMPLATE_TOUR_PRODUCT_LINK="http://www.tuniu.com/tour/%s";
-    private static final String TEMPLATE_PKG_PRODUCT_LINK="http://www.tuniu.com/package/%s";
-    public static final int TYPE_TOUR=0;
-    public static final int TYPE_PKG=1;
-    private int type;
     private Gson gson;
-    private Logger logger= LogManager.getLogger(ProductDetailCrawler.class);
-    public ProductDetailCrawler(CrawlerFactory factory,int type) {
+    private Logger logger= LogManager.getLogger(TourProductDetailCrawler.class);
+    public TourProductDetailCrawler(CrawlerFactory factory) {
         super(factory);
-        this.type=type;
     }
 
-    public ProductDetailCrawler(CrawlerFactory factory,String name,int type) {
+    public TourProductDetailCrawler(CrawlerFactory factory, String name) {
         super(factory,name);
-        this.type=type;
     }
 
-    public ProductDetailCrawler(CrawlerFactory factory,String name, long crawlInterval,int type) {
+    public TourProductDetailCrawler(CrawlerFactory factory, String name, long crawlInterval) {
         super(factory,name,crawlInterval);
-        this.type=type;
     }
 
     @Override
@@ -61,16 +57,10 @@ public class ProductDetailCrawler extends Crawler {
     @Override
     public String getTaskData() {
         Jedis jedis=JedisUtil.getResource();
-        while(!isOver()){
-            String productId;
-            if(type==TYPE_TOUR)
-                productId=jedis.lpop(FROM_TOUR_QUEUE);
-            else
-                productId=jedis.lpop(FROM_PKG_QUEUE);
-            if(productId!=null)
-                return productId;
-        }
-        return null;
+        String productId;
+        productId=jedis.lpop(FROM_TOUR_QUEUE);
+        jedis.close();
+        return productId;
     }
 
     private Map<String,Integer> getCityInfo(String taskData) throws IOException{
@@ -104,7 +94,7 @@ public class ProductDetailCrawler extends Crawler {
         }
     }
 
-    private void getProductBasicInfo(String taskData,JsonObject result) throws IOException {
+    private boolean getProductBasicInfo(String taskData,JsonObject result) throws IOException {
         Map<String, String> params=new HashMap<>();
         Map<String, String> headers=new HashMap<>();
         params.put("d", String.format("{\"productId\":\"%s\",\"journeyId\":0,\"bookCityCode\":2500}", taskData));
@@ -114,17 +104,21 @@ public class ProductDetailCrawler extends Crawler {
         if(response.code()==200) {
             String responseStr=response.body().string();
             JsonObject jsonObject=gson.fromJson(responseStr, JsonObject.class);
+            if(jsonObject.get("data") instanceof JsonNull){
+                return false;
+            }
             JsonObject data=jsonObject.getAsJsonObject("data");
             result.add("name", data.get("name"));
-            if(data.has("journeyList")){
-                result.add("journeyList",data.getAsJsonArray("journeyList"));
-            }
-        } else{
-            logger.info("failed to request "+response.request().url());
         }
+        else{
+            logger.info("failed to request "+response.request().url());
+            return false;
+        }
+        return true;
     }
 
-    private void getProductVendor(Map<String,Integer> cityInfo,String taskData,JsonObject result) throws IOException{
+    private void getProductVendor(Map<String,Integer> cityInfo, String taskData, JsonObject result)
+            throws IOException{
         Map<String, String> params=new HashMap<>();
         Map<String, String> headers=new HashMap<>();
         JsonArray cityArrayResult=new JsonArray();
@@ -139,15 +133,19 @@ public class ProductDetailCrawler extends Crawler {
             if(response.code()==200) {
                 String responseStr=response.body().string();
                 JsonObject jsonObject=gson.fromJson(responseStr, JsonObject.class);
+                if(jsonObject.get("data") instanceof JsonNull){
+                    return;
+                }
                 JsonObject data=jsonObject.getAsJsonObject("data");
                 JsonObject vendorInfo=data.getAsJsonObject("vendorInfo");
                 JsonElement companyName=vendorInfo.get("companyName");
                 if(companyName.getAsString()==null)
-                    cityResult.addProperty("companyName", "null");
+                    cityResult.addProperty("companyName", "跟团游");
                 else
                     cityResult.addProperty("companyName", companyName.getAsString());
                 cityResult.addProperty("fullName", vendorInfo.get("fullName").getAsString());
-                getProductCalendar(taskData,cityCode,cityResult);
+                if(!getProductCalendar(taskData,cityCode,cityResult))
+                    continue;
                 cityArrayResult.add(cityResult);
             } else {
                 logger.info("failed to request "+response.request().url());
@@ -156,7 +154,7 @@ public class ProductDetailCrawler extends Crawler {
         }
         result.add("cityList",cityArrayResult);
     }
-    private void getProductCalendar(String taskData,int cityCode,JsonObject result) throws IOException{
+    private boolean getProductCalendar(String taskData,int cityCode,JsonObject result) throws IOException{
         Map<String, String> params=new HashMap<>();
         Map<String, String> headers=new HashMap<>();
         params.put("productId",taskData);
@@ -166,9 +164,10 @@ public class ProductDetailCrawler extends Crawler {
             String responseStr=response.body().string();
             JsonObject jsonObject=gson.fromJson(responseStr,JsonObject.class);
             JsonObject data=jsonObject.getAsJsonObject("data");
-            if(!data.has("calendarInfos")){
-                logger.info(response.request().url());
-                logger.info(responseStr);
+            if(data.get("calendarInfos") instanceof JsonNull){
+                /*logger.info(response.request().url());
+                logger.info(responseStr);*/
+                return false;
             }
             JsonArray calendarInfos=data.getAsJsonArray("calendarInfos");
             JsonArray calendarResult=new JsonArray();
@@ -192,8 +191,31 @@ public class ProductDetailCrawler extends Crawler {
         }
         else{
             logger.info("failed to request "+response.request().url());
+            return false;
         }
+        return true;
     }
+
+    /*private void getProductHtml(String taskData,JsonObject result) throws IOException{
+        Response response=HttpUtil.doGet(String.format(HTML_URL,taskData    ),null,null);
+        if(response.code()==200){
+            String responseStr=response.body().string();
+            Document document=Jsoup.parse(responseStr);
+            Elements scripts=document.getElementsByTag("script");
+            for(Element script:scripts){
+                if(script.text().contains("window.routeData")){
+                    Pattern pattern=Pattern.compile("window.routeData = \\{(.*)\\}");
+                    Matcher matcher=pattern.matcher(script.text());
+                    if(matcher.matches()){
+
+                    }
+                }
+            }
+        }
+        else{
+            logger.info("failed to request "+response.request().url());
+        }
+    }*/
 
     private void getProductJourney(String taskData,JsonObject result) throws IOException{
         Map<String, String> params=new HashMap<>();
@@ -204,12 +226,22 @@ public class ProductDetailCrawler extends Crawler {
             String responseStr=response.body().string();
             JsonObject jsonObject=gson.fromJson(responseStr,JsonObject.class);
             JsonObject data=jsonObject.getAsJsonObject("data");
+            if(data.get("journeyDetailList") instanceof JsonNull){
+                logger.info(response.request().url());
+                logger.info(responseStr);
+                return;
+            }
             JsonArray journeyDetailList=data.getAsJsonArray("journeyDetailList");
             //journey detail result
             JsonArray journeyListResult=new JsonArray();
+            result.addProperty("destination",journeyDetailList.get(0)
+                    .getAsJsonObject().get("destination").getAsString());
             for(int i=0;i<journeyDetailList.size();i++){
                 //journey detail result
                 JsonArray journeyDetailResult=new JsonArray();
+                JsonObject journeyBaseInfo=journeyDetailList.get(i).getAsJsonObject()
+                        .getAsJsonObject("journeyBaseInfo");
+                result.addProperty("teamCityName",journeyBaseInfo.get("teamCityName").getAsString());
                 JsonObject listItem=journeyDetailList.get(i).getAsJsonObject();
                 JsonObject journeyFourDetail=listItem.getAsJsonObject("journeyFourDetail");
                 JsonArray overview=journeyFourDetail.getAsJsonArray("overview");
@@ -242,17 +274,12 @@ public class ProductDetailCrawler extends Crawler {
     public void crawl(String taskData) {
         JsonObject result=new JsonObject();
         result.addProperty("productId",taskData);
-        if(type==TYPE_TOUR){
-            result.addProperty("productLink", String.format(TEMPLATE_TOUR_PRODUCT_LINK,taskData));
-            result.addProperty("type","tour");
-        }
-        else{
-            result.addProperty("productLink", String.format(TEMPLATE_PKG_PRODUCT_LINK,taskData));
-            result.addProperty("type","pkg");
-        }
+        result.addProperty("productLink", String.format(TEMPLATE_TOUR_PRODUCT_LINK,taskData));
+        result.addProperty("type","tour");
         try{
             Map<String,Integer> cityInfo=getCityInfo(taskData);
-            getProductBasicInfo(taskData,result);
+            if(!getProductBasicInfo(taskData,result))
+                return;
             getProductJourney(taskData,result);
             getProductVendor(cityInfo,taskData,result);
             saveData(result);
@@ -261,26 +288,45 @@ public class ProductDetailCrawler extends Crawler {
         }
         logger.info("end");
     }
+
+    private String buildJourneyString(JsonArray array){
+        StringBuilder builder=new StringBuilder();
+        for(int i=0;i<array.size();i++){
+            builder.append("D");
+            builder.append(i+1);
+            builder.append(":");
+            JsonObject item=array.get(i).getAsJsonObject();
+            builder.append(item.get("journeyDescription").getAsString());
+        }
+        return builder.toString();
+    }
+
     private void saveData(JsonObject object){
-        //logger.info(object.toString());
-        /*try{
+        try{
             Connection connection=DBPoolUtil.getConnection();
 
-            PreparedStatement statement=connection.prepareStatement("INSERT INTO" +
-                    " TRAVEL_PRODUCT_INFO(`PROD_UNI_CODE`,`OTA_ID`,`PROD_TYPE`,`OTA_PROD_ID`,`PROD_NAME`,`TA_NAME`," +
-                    "`PACKAGE_NAME`,`TRAVEL_PLAN`,`TOUR_PARTY`,`PARYT_PALCE`,`TOUR_DESTN`,`TOUR_DAYS`,`TOUR_PATH`)" +
+            PreparedStatement statement=connection.prepareStatement("INSERT INTO TRAVEL_PRODUCT_INFO("+
+                    "`PROD_UNI_CODE`,`OTA_ID`,`PROD_TYPE`,`OTA_PROD_ID`,`PROD_NAME`,`TA_NAME`,`PACKAGE_NAME`,"+
+                    "`TRAVEL_PLAN`,`TOUR_PARTY`,`PARYT_PALCE`,`TOUR_DESTN`,`TOUR_DAYS`,`TOUR_PATH`)" +
                     "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) ");
             statement.setString(1, ThreadUtil.getUUID());
             statement.setInt(2,6);
             statement.setString(3,object.get("type").getAsString());
             statement.setString(4,object.get("productId").getAsString());
             statement.setString(5,object.get("name").getAsString());
+            JsonObject firstCityItem=object.getAsJsonArray("cityList")
+                    .get(0).getAsJsonObject();
+            statement.setString(6,firstCityItem.get("fullName").getAsString());
+            statement.setString(7,firstCityItem.get("companyName").getAsString());
+            statement.setString(8,buildJourneyString
+                    (object.getAsJsonArray("journeyList")));
+            statement.setString(9,object.get("teamCityName").getAsString());
         }catch(SQLException e){
             e.printStackTrace();
-        }*/
+        }
     }
     public static void main(String[] args){
-        ProductDetailCrawler crawler=new ProductDetailCrawler(null,TYPE_TOUR);
+        TourProductDetailCrawler crawler=new TourProductDetailCrawler(null);
         crawler.start();
     }
 }

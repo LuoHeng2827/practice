@@ -86,23 +86,18 @@ public class ProductCrawler extends Crawler {
 
     @Override
     public String getTaskData() {
-        String taskData=taskQueue.poll();
-        if(taskData==null){
-            over();
-            getFactory().notifyOver();
-        }
-        return taskData;
+        return taskQueue.poll();
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public void crawl(String taskData) {
         JsonObject task=gson.fromJson(taskData,JsonObject.class);
+        Jedis jedis=JedisUtil.getResource();
         try{
             String targetUrl=task.get("url").getAsString();
             Map<String,String> params=gson.fromJson(task.get("params").getAsString(),HashMap.class);
             Map<String,String> headers=gson.fromJson(task.get("headers").getAsString(),HashMap.class);
-            Jedis jedis=JedisUtil.getResource();
             Response response=HttpUtil.doGet(targetUrl,params,headers);
             if(response.code()==200){
                 String responseStr=response.body().string();
@@ -119,7 +114,6 @@ public class ProductCrawler extends Crawler {
                     }
                     else
                         jedis.rpush(TO_PKG_QUEUE,productId+"");
-
                 }
             }
             else{
@@ -127,6 +121,8 @@ public class ProductCrawler extends Crawler {
             }
         }catch(IOException e){
             e.printStackTrace();
+        }finally{
+            jedis.close();
         }
     }
 
