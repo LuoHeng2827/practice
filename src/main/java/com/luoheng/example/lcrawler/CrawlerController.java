@@ -16,7 +16,7 @@ public class CrawlerController extends Thread{
     /**
      * 默认的监视函数执行间隔
      */
-    private static final long DEFAULT_MONITOR_INTERVAL=1000*5;
+    private static final long DEFAULT_MONITOR_INTERVAL=1000*3;
     /**
      * 默认的遗失任务的保存路径
      */
@@ -44,6 +44,7 @@ public class CrawlerController extends Thread{
     /**
      * 用来保存爬虫工作链，Key为爬虫工厂，Value为爬虫数组
      */
+    private double threshold=0.8D;
     private Map<CrawlerFactory,Vector<Crawler>> allCrawlers =new LinkedHashMap<>();
     private Map<CrawlerFactory,Map<String,Integer>> relatedRedisKey=new LinkedHashMap<>();
     private Logger logger=LogManager.getLogger(CrawlerController.class);
@@ -91,6 +92,12 @@ public class CrawlerController extends Thread{
         return this;
     }
 
+    public CrawlerController add(CrawlerFactory factory,int count,Map<String,Integer> redisKey){
+        add(factory, count);
+        relatedRedisKey.put(factory,redisKey);
+        return this;
+    }
+
     /**
      * 通知给定爬虫工厂的下一个爬虫工厂关闭
      * @param factory
@@ -108,10 +115,6 @@ public class CrawlerController extends Thread{
         }
     }
 
-    private void monitorRedis(){
-        Jedis jedis=JedisUtil.getResource();
-    }
-
     private void monitorRedisKey(){
         Jedis jedis=JedisUtil.getResource();
         for(Map.Entry<CrawlerFactory,Map<String,Integer>> entryI:relatedRedisKey.entrySet()){
@@ -121,9 +124,10 @@ public class CrawlerController extends Thread{
                 String redisKey=entryJ.getKey();
                 int maxCount=entryJ.getValue();
                 if(jedis.llen(redisKey)>=maxCount){
-                    factory.pause();
+                    if(!factory.isPause())
+                        factory.pause();
                 }
-                else{
+                else if(jedis.llen(redisKey)<=maxCount*threshold){
                     if(factory.isPause())
                         factory.resume();
                 }
@@ -206,6 +210,7 @@ public class CrawlerController extends Thread{
     public void monitor(){
         monitorCrawlerFactory();
         monitorCrawlerCount();
+        monitorRedisKey();
     }
 
     /**

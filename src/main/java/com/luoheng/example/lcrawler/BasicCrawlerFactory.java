@@ -49,6 +49,7 @@ public abstract class BasicCrawlerFactory<T extends Crawler> implements CrawlerF
     @Override
     @SuppressWarnings("unchecked")
     public void pause(){
+        logger.info(name+" is pausing...");
         pause=true;
         Vector<T> crawlerVector=(Vector<T>)controller.getFactoryVector(this);
         for(T crawler:crawlerVector){
@@ -57,6 +58,7 @@ public abstract class BasicCrawlerFactory<T extends Crawler> implements CrawlerF
     }
     @Override
     public void resume(){
+        logger.info(name+" is resuming...");
         pause=false;
     }
 
