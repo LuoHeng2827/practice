@@ -7,8 +7,8 @@ import org.apache.logging.log4j.Logger;
 
 
 public abstract class Crawler extends Thread{
-    private static final long DEFAULT_CRAWL_INTERVAL=100L;
-    private static final long DEFAULT_PAUSE_SLEEP_TIME_UNIT=1000L;
+    private static final long DEFAULT_CRAWL_INTERVAL=1000L;
+    private static final long DEFAULT_PAUSE_SLEEP_TIME_UNIT=3000L;
     private static final long DEFAULT_MAX_PAUSE_TIME=20000L;
     private long pauseTimeUnit;
     private long pauseTime;
@@ -86,6 +86,7 @@ public abstract class Crawler extends Thread{
 
     public void resumeThis(){
         pause=false;
+        pauseTime=0;
     }
 
     public void setPauseTimeUnit(long pauseTimeUnit){

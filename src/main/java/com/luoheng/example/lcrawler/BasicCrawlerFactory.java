@@ -57,9 +57,14 @@ public abstract class BasicCrawlerFactory<T extends Crawler> implements CrawlerF
         }
     }
     @Override
+    @SuppressWarnings("unchecked")
     public void resume(){
         logger.info(name+" is resuming...");
         pause=false;
+        Vector<T> crawlerVector=(Vector<T>)controller.getFactoryVector(this);
+        for(T crawler:crawlerVector){
+            crawler.resumeThis();
+        }
     }
 
     /**

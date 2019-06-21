@@ -16,7 +16,7 @@ public class CrawlerController extends Thread{
     /**
      * 默认的监视函数执行间隔
      */
-    private static final long DEFAULT_MONITOR_INTERVAL=1000*3;
+    private static final long DEFAULT_MONITOR_INTERVAL=100;
     /**
      * 默认的遗失任务的保存路径
      */

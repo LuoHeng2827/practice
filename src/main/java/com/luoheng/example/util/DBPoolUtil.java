@@ -29,8 +29,7 @@ public class DBPoolUtil{
         String url=PropertiesUtil.getValue("jdbc.url");
         String userName=PropertiesUtil.getValue("jdbc.username");
         String passwords=PropertiesUtil.getValue("jdbc.passwords");
-        Connection connection=DriverManager.getConnection(url,userName,passwords);
-        return connection;
+        return DriverManager.getConnection(url,userName,passwords);
         //return dataSource.getConnection();
     }
 }

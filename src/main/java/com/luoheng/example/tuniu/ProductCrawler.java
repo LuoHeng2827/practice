@@ -3,6 +3,7 @@ package com.luoheng.example.tuniu;
 import com.google.gson.*;
 import com.luoheng.example.lcrawler.Crawler;
 import com.luoheng.example.lcrawler.CrawlerFactory;
+import com.luoheng.example.util.DBPoolUtil;
 import com.luoheng.example.util.HttpUtil;
 import com.luoheng.example.util.JedisUtil;
 import okhttp3.Response;
@@ -11,9 +12,11 @@ import org.apache.logging.log4j.Logger;
 import redis.clients.jedis.Jedis;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Queue;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
@@ -26,6 +29,7 @@ public class ProductCrawler extends Crawler {
     public static final int TYPE_TOUR=0;
     public static final int TYPE_PKG=1;
     private Queue<String> taskQueue;
+    private List<String> existData;
     private Gson gson;
     private int type;
     private Logger logger=LogManager.getLogger(ProductCrawler.class);
@@ -44,6 +48,23 @@ public class ProductCrawler extends Crawler {
         super.init();
         gson=new Gson();
         taskQueue=buildTask();
+        existData=getExistData();
+    }
+
+    private List<String> getExistData(){
+        List<String> productIdList=new ArrayList<>();
+        try{
+            Connection connection=DBPoolUtil.getConnection();
+            PreparedStatement statement=connection
+                    .prepareStatement("SELECT OTA_PROD_ID FROM TRAVEL_PRODUCT_INFO;");
+            ResultSet resultSet=statement.executeQuery();
+            while(resultSet.next()){
+                productIdList.add(resultSet.getString(1));
+            }
+        }catch(SQLException e){
+            e.printStackTrace();
+        }
+        return productIdList;
     }
 
     private Queue<String> buildTask(){
@@ -68,7 +89,6 @@ public class ProductCrawler extends Crawler {
                 JsonObject jsonObject=gson.fromJson(responseStr,JsonObject.class);
                 JsonObject data=jsonObject.getAsJsonObject("data");
                 int pageCount=data.get("pageCount").getAsInt();
-
                 for(int i=0;i<pageCount;i++){
                     JsonObject task=new JsonObject();
                     task.addProperty("url",TARGET_URL);
@@ -108,12 +128,15 @@ public class ProductCrawler extends Crawler {
                 }
                 JsonArray list=data.getAsJsonArray("list");
                 for(int i=0;i<list.size();i++){
-                    long productId=list.get(i).getAsJsonObject().get("productId").getAsLong();
+                    String productId=list.get(i).getAsJsonObject().get("productId").getAsString();
+                    if(existData.contains(productId)){
+                        continue;
+                    }
                     if(type==TYPE_TOUR){
-                        jedis.rpush(TO_TOUR_QUEUE,productId+"");
+                        jedis.rpush(TO_TOUR_QUEUE,productId);
                     }
                     else
-                        jedis.rpush(TO_PKG_QUEUE,productId+"");
+                        jedis.rpush(TO_PKG_QUEUE,productId);
                 }
             }
             else{

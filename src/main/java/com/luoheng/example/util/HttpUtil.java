@@ -4,10 +4,14 @@ import okhttp3.*;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 public class HttpUtil {
     private static OkHttpClient client;
@@ -23,13 +27,35 @@ public class HttpUtil {
         return stringBuilder.toString();
     }
 
-    public static Response doGet(String url,Map<String,String> params,Map<String,String> headers) throws IOException {
-        client=getInstant();
+    private static OkHttpClient buildProxy(Proxy proxy){
+        OkHttpClient.Builder builder=new OkHttpClient.Builder();
+        builder.proxy(proxy)
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(10,TimeUnit.SECONDS)
+                .callTimeout(30,TimeUnit.SECONDS);
+        return builder.build();
+    }
+
+    public static Response doGet(String url,Map<String,String> params,
+                                 Map<String,String> headers,Proxy proxy) throws IOException{
+        return doGet(buildProxy(proxy),url,params,headers);
+    }
+
+    public static Response doGet(String url,Map<String,String> params,Map<String,String> headers)
+            throws IOException{
+        return doGet(getInstant(),url,params,headers);
+    }
+
+    private static Response doGet(OkHttpClient client,String url,Map<String,String> params,
+                                  Map<String,String> headers) throws IOException {
         if(params==null)
             params=new HashMap<>();
         if(headers==null){
             headers=new HashMap<>();
         }
+        /*if(client.proxy()!=null){
+            headers.put("Host", InetAddress.getLocalHost().getHostAddress());
+        }*/
         url=generateGetParams(url, params);
         Request.Builder builder=new Request.Builder()
                 .url(url)

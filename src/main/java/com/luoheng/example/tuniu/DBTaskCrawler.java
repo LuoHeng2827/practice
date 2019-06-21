@@ -57,9 +57,11 @@ public class DBTaskCrawler extends Crawler{
             JsonArray journeyListResult=object.getAsJsonArray("journeyList");
             for(int i=0;i<journeyListResult.size();i++){
                 JsonObject journeyResult=journeyListResult.get(i).getAsJsonObject();
-                PreparedStatement preparedStatement=connection.prepareStatement("INSERT INTO TRAVEL_PRODUCT_INFO("+
-                        "`PROD_UNI_CODE`,`OTA_ID`,`PROD_TYPE`,`OTA_PROD_ID`,`PROD_NAME`,`TA_NAME`,`PACKAGE_NAME`,"+
-                        "`TRAVEL_PLAN`,`TOUR_PARTY`,`PARYT_PALCE`,`TOUR_DESTN`,`TOUR_DAYS`,`PROD_LINK`)" +
+                PreparedStatement preparedStatement=connection
+                        .prepareStatement("INSERT INTO TUNIU_TRAVEL_PRODUCT_INFO("+
+                        "`PROD_UNI_CODE`,`OTA_ID`,`PROD_TYPE`,`OTA_PROD_ID`,`PROD_NAME`,`TA_NAME`," +
+                                "`PACKAGE_NAME`,`TRAVEL_PLAN`,`TOUR_PARTY`,`PARYT_PALCE`,`TOUR_DESTN`," +
+                                "`TOUR_DAYS`,`PROD_LINK`)" +
                         "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?);");
                 String uuid=ThreadUtil.getUUID();
                 preparedStatement.setString(1,uuid);
@@ -91,7 +93,7 @@ public class DBTaskCrawler extends Crawler{
                 preparedStatement.execute();
                 preparedStatement.close();
                 JsonArray cityListResult=object.getAsJsonArray("cityList");
-                preparedStatement=connection.prepareStatement("INSERT INTO TRAVEL_PRODUCT_PRICE(" +
+                preparedStatement=connection.prepareStatement("INSERT INTO TUNIU_TRAVEL_PRODUCT_PRICE(" +
                         "`PROD_UNI_CODE`,`DATE`,`CITY`,`PRICE`) VALUES(?,?,?,?);");
                 for(int j=0;j<cityListResult.size();j++){
                     JsonObject cityResult=cityListResult.get(j).getAsJsonObject();
