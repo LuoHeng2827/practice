@@ -3,8 +3,8 @@ package com.luoheng.example.tuniu;
 import com.google.gson.*;
 import com.luoheng.example.lcrawler.Crawler;
 import com.luoheng.example.lcrawler.CrawlerFactory;
-import com.luoheng.example.util.HttpUtil;
-import com.luoheng.example.util.JedisUtil;
+import com.luoheng.example.util.http.OkHttpUtil;
+import com.luoheng.example.util.redis.JedisUtil;
 import okhttp3.Response;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -61,7 +61,7 @@ public class TourProductDetailCrawler extends Crawler {
         params.put("bookCityCode","2500");
         headers.put("User-Agent","Chrome/74.0.3729.169 Mobile");
         headers.put("Referer","https://m.tuniu.com/h5/package/"+taskData);
-        Response response=HttpUtil.doGet(CITY_URL,params,headers);
+        Response response=OkHttpUtil.doGet(CITY_URL,params,headers);
         if(response.code()==200){
             String responseStr=response.body().string();
             JsonObject jsonObject=gson.fromJson(responseStr,JsonObject.class);
@@ -90,7 +90,7 @@ public class TourProductDetailCrawler extends Crawler {
         params.put("d", String.format("{\"productId\":\"%s\",\"journeyId\":0,\"bookCityCode\":2500}", taskData));
         headers.put("User-Agent", "Chrome/74.0.3729.169 Mobile");
         headers.put("Referer", "https://m.tuniu.com/h5/package/"+taskData);
-        Response response=HttpUtil.doGet(DETAIL_URL, params, headers);
+        Response response=OkHttpUtil.doGet(DETAIL_URL, params, headers);
         if(response.code()==200) {
             String responseStr=response.body().string();
             JsonObject jsonObject=gson.fromJson(responseStr, JsonObject.class);
@@ -119,7 +119,7 @@ public class TourProductDetailCrawler extends Crawler {
             cityResult.addProperty("cityName",cityName);
             params.put("productId", taskData);
             params.put("bookCity", cityCode+"");
-            Response response=HttpUtil.doGet(PRICE_URL, params, headers);
+            Response response=OkHttpUtil.doGet(PRICE_URL, params, headers);
             if(response.code()==200) {
                 String responseStr=response.body().string();
                 JsonObject jsonObject=gson.fromJson(responseStr, JsonObject.class);
@@ -149,7 +149,7 @@ public class TourProductDetailCrawler extends Crawler {
         Map<String, String> headers=new HashMap<>();
         params.put("productId",taskData);
         params.put("bookCityCode",cityCode+"");
-        Response response=HttpUtil.doGet(CALENDAR_URL,params,headers);
+        Response response=OkHttpUtil.doGet(CALENDAR_URL,params,headers);
         if(response.code()==200){
             String responseStr=response.body().string();
             JsonObject jsonObject=gson.fromJson(responseStr,JsonObject.class);
@@ -187,7 +187,7 @@ public class TourProductDetailCrawler extends Crawler {
     }
 
     /*private void getProductHtml(String taskData,JsonObject result) throws IOException{
-        Response response=HttpUtil.doGet(String.format(HTML_URL,taskData    ),null,null);
+        Response response=OkHttpUtil.doGet(String.format(HTML_URL,taskData    ),null,null);
         if(response.code()==200){
             String responseStr=response.body().string();
             Document document=Jsoup.parse(responseStr);
@@ -211,7 +211,7 @@ public class TourProductDetailCrawler extends Crawler {
         Map<String, String> params=new HashMap<>();
         Map<String, String> headers=new HashMap<>();
         params.put("productId",taskData);
-        Response response=HttpUtil.doGet(JOURNEY_URL,params,headers);
+        Response response=OkHttpUtil.doGet(JOURNEY_URL,params,headers);
         if(response.code()==200){
             String responseStr=response.body().string();
             JsonObject jsonObject=gson.fromJson(responseStr,JsonObject.class);

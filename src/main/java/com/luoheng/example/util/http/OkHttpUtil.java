@@ -1,19 +1,20 @@
-package com.luoheng.example.util;
+package com.luoheng.example.util.http;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.luoheng.example.util.redis.JedisUtil;
 import okhttp3.*;
+import redis.clients.jedis.Jedis;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
-public class HttpUtil {
+public class OkHttpUtil{
     private static OkHttpClient client;
 
     private static String generateGetParams(String url,Map<String,String> params){
@@ -31,14 +32,23 @@ public class HttpUtil {
         OkHttpClient.Builder builder=new OkHttpClient.Builder();
         builder.proxy(proxy)
                 .connectTimeout(30, TimeUnit.SECONDS)
-                .readTimeout(10,TimeUnit.SECONDS)
+                .readTimeout(30,TimeUnit.SECONDS)
                 .callTimeout(30,TimeUnit.SECONDS);
         return builder.build();
     }
 
-    public static Response doGet(String url,Map<String,String> params,
-                                 Map<String,String> headers,Proxy proxy) throws IOException{
-        return doGet(buildProxy(proxy),url,params,headers);
+    public static Response doGetByProxy(String url,Map<String,String> params,
+                                 Map<String,String> headers) throws IOException{
+        Gson gson=new Gson();
+        Jedis jedis=JedisUtil.getResource();
+        String jsonStr=jedis.get("proxy");
+        JsonArray jsonArray=gson.fromJson(jsonStr,JsonArray.class);
+        Random random=new Random(new Date().getTime());
+        int index=random.nextInt(jsonArray.size());
+        JsonObject jsonObject=jsonArray.get(index).getAsJsonObject();
+        HttpProxy httpProxy=new HttpProxy(jsonObject.get("host").getAsString(),jsonObject.get("port").getAsInt());
+        return doGet(buildProxy(new Proxy(Proxy.Type.HTTP,
+                new InetSocketAddress(httpProxy.host,httpProxy.port))),url,params,headers);
     }
 
     public static Response doGet(String url,Map<String,String> params,Map<String,String> headers)
@@ -53,9 +63,6 @@ public class HttpUtil {
         if(headers==null){
             headers=new HashMap<>();
         }
-        /*if(client.proxy()!=null){
-            headers.put("Host", InetAddress.getLocalHost().getHostAddress());
-        }*/
         url=generateGetParams(url, params);
         Request.Builder builder=new Request.Builder()
                 .url(url)
@@ -128,8 +135,12 @@ public class HttpUtil {
 
     public static OkHttpClient getInstant(){
         if(client==null){
-            synchronized(HttpUtil.class){
-                client=new OkHttpClient();
+            synchronized(OkHttpUtil.class){
+                OkHttpClient.Builder builder=new OkHttpClient.Builder();
+                builder.connectTimeout(20,TimeUnit.SECONDS)
+                        .readTimeout(20,TimeUnit.SECONDS)
+                        .writeTimeout(20,TimeUnit.SECONDS);
+                client=builder.build();
             }
         }
         return client;

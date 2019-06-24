@@ -4,8 +4,8 @@ import com.google.gson.*;
 import com.luoheng.example.lcrawler.Crawler;
 import com.luoheng.example.lcrawler.CrawlerFactory;
 import com.luoheng.example.util.DBPoolUtil;
-import com.luoheng.example.util.HttpUtil;
-import com.luoheng.example.util.JedisUtil;
+import com.luoheng.example.util.http.OkHttpUtil;
+import com.luoheng.example.util.redis.JedisUtil;
 import okhttp3.Response;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -83,7 +83,7 @@ public class ProductCrawler extends Crawler {
         headers.put("User-Agent","Chrome/74.0.3729.169 Mobile");
         headers.put("Referer","https://m.tuniu.com/h5/search/index");
         try{
-            Response response=HttpUtil.doGet(TARGET_URL,params,headers);
+            Response response=OkHttpUtil.doGet(TARGET_URL,params,headers);
             if(response.code()==200){
                 String responseStr=response.body().string();
                 JsonObject jsonObject=gson.fromJson(responseStr,JsonObject.class);
@@ -118,7 +118,7 @@ public class ProductCrawler extends Crawler {
             String targetUrl=task.get("url").getAsString();
             Map<String,String> params=gson.fromJson(task.get("params").getAsString(),HashMap.class);
             Map<String,String> headers=gson.fromJson(task.get("headers").getAsString(),HashMap.class);
-            Response response=HttpUtil.doGet(targetUrl,params,headers);
+            Response response=OkHttpUtil.doGet(targetUrl,params,headers);
             if(response.code()==200){
                 String responseStr=response.body().string();
                 JsonObject jsonObject=gson.fromJson(responseStr,JsonObject.class);

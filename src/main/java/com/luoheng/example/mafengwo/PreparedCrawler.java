@@ -4,8 +4,8 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.luoheng.example.lcrawler.Crawler;
 import com.luoheng.example.lcrawler.CrawlerFactory;
-import com.luoheng.example.util.HttpUtil;
-import com.luoheng.example.util.JedisUtil;
+import com.luoheng.example.util.http.OkHttpUtil;
+import com.luoheng.example.util.redis.JedisUtil;
 import com.luoheng.example.util.ThreadUtil;
 import okhttp3.Response;
 import org.apache.logging.log4j.LogManager;
@@ -65,7 +65,7 @@ public class PreparedCrawler extends Crawler{
             params.put("to",destinationCityCodes[i]);
             params.put("page","1");
             try{
-                Response response=HttpUtil.doGet(TARGET_URL,params,headers);
+                Response response=OkHttpUtil.doGet(TARGET_URL,params,headers);
                 if(response.code()==200){
                     String responseStr=response.body().string();
                     JsonObject jsonObject=gson.fromJson(responseStr,JsonObject.class);
@@ -99,7 +99,7 @@ public class PreparedCrawler extends Crawler{
         String url=taskDataObject.get("url").getAsString();
         Map<String,String> params=gson.fromJson(taskDataObject.get("params").getAsString(),HashMap.class);
         Map<String,String> headers=gson.fromJson(taskDataObject.get("headers").getAsString(),HashMap.class);
-        Response response=HttpUtil.doGet(url,params,headers);
+        Response response=OkHttpUtil.doGet(url,params,headers);
         if(response.code()==200){
             String responseStr=response.body().string();
             JsonObject jsonObject=gson.fromJson(responseStr,JsonObject.class);

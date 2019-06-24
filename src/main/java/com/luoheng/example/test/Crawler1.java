@@ -2,7 +2,7 @@ package com.luoheng.example.test;
 
 import com.luoheng.example.lcrawler.Crawler;
 import com.luoheng.example.lcrawler.CrawlerFactory;
-import com.luoheng.example.util.JedisUtil;
+import com.luoheng.example.util.redis.JedisUtil;
 import redis.clients.jedis.Jedis;
 
 public class Crawler1 extends Crawler{

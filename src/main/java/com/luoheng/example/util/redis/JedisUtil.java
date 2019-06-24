@@ -1,5 +1,6 @@
-package com.luoheng.example.util;
+package com.luoheng.example.util.redis;
 
+import com.luoheng.example.util.PropertiesUtil;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;

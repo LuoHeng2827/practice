@@ -1,6 +1,6 @@
 package com.luoheng.example.test;
 
-import com.luoheng.example.util.HttpUtil;
+import com.luoheng.example.util.http.OkHttpUtil;
 import okhttp3.Response;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -24,7 +24,7 @@ public class GetTest implements Runnable{
         headers.put("User-Agent","Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Mobile Safari/537.36");
 
         try{
-            Response response= HttpUtil.doGet(url,params,headers);
+            Response response= OkHttpUtil.doGet(url,params,headers);
             if(response.code()==200){
                 String result=response.body().string();
                 logger.info(result);

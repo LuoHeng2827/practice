@@ -91,6 +91,10 @@ public abstract class BasicCrawlerFactory<T extends Crawler> implements CrawlerF
         }
     }
 
+    public CrawlerController getController(){
+        return controller;
+    }
+
     @Override
     public boolean isStop() {
         return stop;

@@ -1,7 +1,7 @@
 package com.luoheng.example.util.BloomFilter;
 
 
-import com.luoheng.example.util.JedisUtil;
+import com.luoheng.example.util.redis.JedisUtil;
 import redis.clients.jedis.Jedis;
 
 import java.util.ArrayList;

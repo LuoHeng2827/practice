@@ -6,7 +6,7 @@ import com.google.gson.JsonObject;
 import com.luoheng.example.lcrawler.Crawler;
 import com.luoheng.example.lcrawler.CrawlerFactory;
 import com.luoheng.example.util.DBPoolUtil;
-import com.luoheng.example.util.JedisUtil;
+import com.luoheng.example.util.redis.JedisUtil;
 import com.luoheng.example.util.ThreadUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;

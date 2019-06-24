@@ -7,8 +7,8 @@ import com.google.gson.JsonObject;
 import com.luoheng.example.lcrawler.Crawler;
 import com.luoheng.example.lcrawler.CrawlerFactory;
 import com.luoheng.example.util.DBPoolUtil;
-import com.luoheng.example.util.HttpUtil;
-import com.luoheng.example.util.JedisUtil;
+import com.luoheng.example.util.http.OkHttpUtil;
+import com.luoheng.example.util.redis.JedisUtil;
 import com.luoheng.example.util.ThreadUtil;
 import okhttp3.Response;
 import org.apache.logging.log4j.LogManager;
@@ -60,7 +60,7 @@ public class PkgProductDetailCrawler extends Crawler{
         params.put("d", String.format("{\"productId\":\"%s\"}", taskData));
         headers.put("User-Agent","Chrome/74.0.3729.169 Mobile");
         headers.put("Referer","https://m.tuniu.com/h5/package/"+taskData);
-        Response response=HttpUtil.doGet(CITY_URL,params,headers);
+        Response response=OkHttpUtil.doGet(CITY_URL,params,headers);
         if(response.code()==200){
             String responseStr=response.body().string();
             JsonObject jsonObject=gson.fromJson(responseStr,JsonObject.class);
@@ -89,7 +89,7 @@ public class PkgProductDetailCrawler extends Crawler{
         params.put("d", String.format("{\"productId\":\"%s\",\"journeyId\":0,\"bookCityCode\":2500}", taskData));
         headers.put("User-Agent", "Chrome/74.0.3729.169 Mobile");
         headers.put("Referer", "https://m.tuniu.com/h5/package/"+taskData);
-        Response response=HttpUtil.doGet(DETAIL_URL, params, headers);
+        Response response=OkHttpUtil.doGet(DETAIL_URL, params, headers);
         if(response.code()==200) {
             String responseStr=response.body().string();
             JsonObject jsonObject=gson.fromJson(responseStr, JsonObject.class);
@@ -122,7 +122,7 @@ public class PkgProductDetailCrawler extends Crawler{
             JsonObject cityResult=new JsonObject();
             params.put("d", String.format(
                     "{\"productId\":\"%s\",\"productType\":108,\"bookCityCode\":%s}", taskData,cityCode));
-            Response response=HttpUtil.doGet(CALENDAR_URL, params, headers);
+            Response response=OkHttpUtil.doGet(CALENDAR_URL, params, headers);
             if(response.code()==200){
                 String responseStr=response.body().string();
                 JsonObject jsonObject=gson.fromJson(responseStr,JsonObject.class);

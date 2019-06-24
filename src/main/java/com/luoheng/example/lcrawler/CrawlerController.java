@@ -1,6 +1,6 @@
 package com.luoheng.example.lcrawler;
 
-import com.luoheng.example.util.JedisUtil;
+import com.luoheng.example.util.redis.JedisUtil;
 import com.luoheng.example.util.ThreadUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
