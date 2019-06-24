@@ -93,7 +93,7 @@ public class HttpClientUtil{
         params.put("id","6066578");
         for(int i=0;i<50;i++){
             HttpResponse response=doGet("http://www.mafengwo.cn/sales/detail/stock/detail",
-                    params,null,true,i);
+                    params,null,true,1);
             if(response.getStatusLine().getStatusCode()==200){
                 System.out.println("request ok");
             }
