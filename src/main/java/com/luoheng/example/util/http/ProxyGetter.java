@@ -29,7 +29,7 @@ public class ProxyGetter extends Thread{
     public void run() {
         while(true){
             core();
-            ThreadUtil.waitMillis(10*1000);
+            ThreadUtil.waitMillis(3*1000);
         }
     }
 

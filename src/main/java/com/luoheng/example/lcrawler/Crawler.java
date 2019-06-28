@@ -12,6 +12,7 @@ public abstract class Crawler extends Thread{
     private static final long DEFAULT_MAX_PAUSE_TIME=20000L;
     private long pauseTimeUnit;
     private long pauseTime;
+    protected int number=-1;
     /**
      * 爬虫的当前任务
      */
@@ -48,11 +49,19 @@ public abstract class Crawler extends Thread{
         this.crawlInterval=crawlInterval;
     }
 
-    public void init(){
+    private void init(){
         over=false;
         pause=false;
         crawlInterval=DEFAULT_CRAWL_INTERVAL;
         pauseTimeUnit=DEFAULT_PAUSE_SLEEP_TIME_UNIT;
+    }
+
+    public int getNumber(){
+        return number;
+    }
+
+    public void setNumber(int number){
+        this.number=number;
     }
 
     public abstract String getTaskData();

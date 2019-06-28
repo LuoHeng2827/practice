@@ -1,9 +1,11 @@
 package com.luoheng.example.test;
 
-import com.luoheng.example.util.http.OkHttpUtil;
-import okhttp3.Response;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import com.luoheng.example.util.ThreadUtil;
+import com.luoheng.example.util.http.HttpClientUtil;
+import com.luoheng.example.util.redis.JedisUtil;
+import org.apache.http.HttpResponse;
+import org.apache.http.util.EntityUtils;
+import redis.clients.jedis.Jedis;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -11,45 +13,73 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class GetTest implements Runnable{
-    private static final String url="https://h5.m.taobao.com/trip/rx-search/travel-list/index.html?keyword=wuhan&fromSug=1&_wx_tpl=https%3A%2F%2Fh5.m.taobao.com%2Ftrip%2Frx-search%2Ftravel-list%2Findex.weex.js&globalSearchSource=sug_trip_scenic&nav=SCENIC&spm=181.8512603.x2112542.dHLItem-historyList-0-0&gsclickquery=wuhan&buyerLoc=%E5%8C%97%E4%BA%AC&ttid=seo.000000358&_projVer=0.1.90";
-    private Logger logger=LogManager.getLogger(GetTest.class);
-    private String requestData(){
-        Map<String,String> params=new HashMap<>();
-        Map<String,String> headers=new HashMap<>();
-        headers.put("Accept","application/json");
-        headers.put("Content-type","application/x-www-form-urlencoded");
-        headers.put("Origin","https://h5.m.taobao.com");
-        headers.put("Referer","https://h5.m.taobao.com/trip/rx-search/travel-list/index.html?keyword=wuhan&fromSug=1&_wx_tpl=https%3A%2F%2Fh5.m.taobao.com%2Ftrip%2Frx-search%2Ftravel-list%2Findex.weex.js&globalSearchSource=sug_trip_scenic&nav=SCENIC&spm=181.8512603.x2112542.dHLItem-historyList-0-0&gsclickquery=wuhan&buyerLoc=%E5%8C%97%E4%BA%AC&ttid=seo.000000358&_projVer=0.1.90");
-        headers.put("User-Agent","Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Mobile Safari/537.36");
-
+public class GetTest extends Thread{
+    static String[] s1={"2939566","2568017","3001007","2660745","2839394","2548637"};
+    static String[] s2={"5556394","2450295","5664016","2628844","2872357","2931944"};
+    private int number;
+    public GetTest(int number){
+        this.number=number;
+    }
+    @Override
+    public void run(){
         try{
-            Response response= OkHttpUtil.doGet(url,params,headers);
-            if(response.code()==200){
-                String result=response.body().string();
-                logger.info(result);
-                return result;
+            Map<String,String> params=new HashMap<>();
+            Map<String,String> headers=new HashMap<>();
+            //headers.put("host","www.mafengwo.cn");
+            params.put("id",s1[number]);
+            //headers.put("Referer","http://www.mafengwo.cn/sales/6066578.html");
+            HttpResponse response=HttpClientUtil.doGet("http://www.mafengwo.cn/sales/detail/index/info",
+                    params,headers,true,number);
+            if(response.getStatusLine().getStatusCode()==200){
+                params.put("id",s2[number]);
+                System.out.println("request "+s1[number]+" ok");
+                response=HttpClientUtil.doGet("http://www.mafengwo.cn/sales/detail/index/info",
+                        params,headers,true,number);
+                if(response.getStatusLine().getStatusCode()==200){
+                    System.out.println("request "+s2[number]+" ok");
+                }
+                else{
+                    System.out.println("error to request "+s2[number]+response.getStatusLine().getStatusCode());
+                }
             }
             else{
-                logger.info("error: response code is "+response.code());
+                System.out.println("error to request "+s1[number]+response.getStatusLine().getStatusCode());
             }
         }catch(IOException e){
             e.printStackTrace();
         }
-        return null;
     }
-    @Override
-    public void run() {
-        requestData();
-    }
-    public static void main(String[] args){
-        List<Thread> threadList=new ArrayList<>();
-        for(int i=0;i<1;i++){
-            GetTest getTest=new GetTest();
-            threadList.add(new Thread(getTest));
-        }
-        for(int i=0;i<threadList.size();i++){
-            threadList.get(i).start();
+
+    public static void main(String[] args) throws Exception{
+        /*List<Thread> threadList=new ArrayList<>();
+
+        while(true){
+            threadList.clear();
+            for(int i=0;i<s1.length;i++){
+                GetTest test=new GetTest(i);
+                threadList.add(test);
+            }
+            for(Thread thread:threadList){
+                if(!thread.isInterrupted()){
+                    thread.start();
+                }
+            }
+            ThreadUtil.waitMillis(5000);
+        }*/
+        Jedis jedis=JedisUtil.getResource();
+        String taskData=jedis.rpop("list_mafengwo_product_id");
+        while(taskData!=null){
+            Map<String,String> params=new HashMap<>();
+            Map<String,String> header=new HashMap<>();
+            params.put("groupId",taskData);
+            HttpResponse response=HttpClientUtil.doGet("http://www.mafengwo.cn/sales/detail/stock/info",params,null,true,1);
+            if(response.getStatusLine().getStatusCode()==200){
+                System.out.println(EntityUtils.toString(response.getEntity()));
+            }
+            else{
+                System.out.println("failed");
+            }
+            taskData=jedis.rpop("list_mafengwo_product_id");
         }
     }
 }

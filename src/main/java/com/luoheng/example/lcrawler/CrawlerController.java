@@ -86,6 +86,7 @@ public class CrawlerController extends Thread{
      * @param count 要创建爬虫的数量
      * @return 返回自身，用于链式调用
      */
+    @SuppressWarnings("unchecked")
     public CrawlerController add(CrawlerFactory factory,int count){
         Vector<Crawler> crawlerVector=factory.newVector(count);
         allCrawlers.put(factory,crawlerVector);
@@ -116,18 +117,17 @@ public class CrawlerController extends Thread{
     }
 
     private void monitorRedisKey(){
-        Jedis jedis=JedisUtil.getResource();
         for(Map.Entry<CrawlerFactory,Map<String,Integer>> entryI:relatedRedisKey.entrySet()){
             CrawlerFactory factory=entryI.getKey();
             Map<String,Integer> redisKeyMap=entryI.getValue();
             for(Map.Entry<String,Integer> entryJ:redisKeyMap.entrySet()){
                 String redisKey=entryJ.getKey();
                 int maxCount=entryJ.getValue();
-                if(jedis.llen(redisKey)>=maxCount){
+                if(JedisUtil.llen(redisKey)>=maxCount){
                     if(!factory.isPause())
                         factory.pause();
                 }
-                else if(jedis.llen(redisKey)<=maxCount*threshold){
+                else if(JedisUtil.llen(redisKey)<=maxCount*threshold){
                     if(factory.isPause())
                         factory.resume();
                 }
@@ -158,6 +158,7 @@ public class CrawlerController extends Thread{
                 continue;
             Iterator<Crawler> iterator=crawlerVector.iterator();
             Vector<Crawler> newCrawlerVector=new Vector<>();
+            int index=0;
             while(iterator.hasNext()){
                 Crawler crawler=iterator.next();
                 if(!crawler.isAlive()){
@@ -171,6 +172,7 @@ public class CrawlerController extends Thread{
                         }
                         iterator.remove();
                         Crawler newCrawler=factory.newInstance();
+                        newCrawler.setNumber(index);
                         newCrawlerVector.add(newCrawler);
                         newCrawler.start();
                         complete=false;
@@ -179,6 +181,7 @@ public class CrawlerController extends Thread{
                 else{
                     complete=false;
                 }
+                index++;
             }
             crawlerVector.addAll(newCrawlerVector);
         }

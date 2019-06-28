@@ -4,11 +4,10 @@ import com.google.gson.Gson;
 import com.luoheng.example.lcrawler.Crawler;
 import com.luoheng.example.lcrawler.CrawlerFactory;
 import com.luoheng.example.util.DBPoolUtil;
-import com.luoheng.example.util.redis.JedisUtil;
 import com.luoheng.example.util.ThreadUtil;
+import com.luoheng.example.util.redis.JedisUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import redis.clients.jedis.Jedis;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -17,10 +16,9 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
 
 public class DBTaskCrawler extends Crawler{
-        private static final String FROM_QUEUE="list_mafengwo_tour_db";
+    public static final String FROM_QUEUE="list_mafengwo_tour_db";
     private Gson gson=new Gson();
     private Logger logger=LogManager.getLogger(DBTaskCrawler.class);
     public DBTaskCrawler(CrawlerFactory factory){
@@ -35,78 +33,66 @@ public class DBTaskCrawler extends Crawler{
         super(factory, name, crawlInterval);
     }
 
-    private void saveData(Bean bean){
+    private void saveData(String taskData){
+        Bean bean=gson.fromJson(taskData,Bean.class);
         logger.info(bean.productLink);
         try{
             Connection connection=DBPoolUtil.getConnection();
-            for(int i=0;i<bean.packageList.size();i++){
-                Bean.Package bPackage=bean.packageList.get(i);
-                PreparedStatement preparedStatement=connection
-                        .prepareStatement("INSERT INTO MAFENGWO_TRAVEL_PRODUCT_INFO(" +
-                                "`PROD_UNI_CODE`,`OTA_ID`,`PROD_TYPE`,`OTA_PROD_ID`,`PROD_NAME`," +
-                                "`TA_NAME`,`PACKAGE_NAME`,`TRAVEL_PLAN`,`PROD_LINK`)" +
-                                "VALUES(?,?,?,?,?,?,?,?,?);");
-                String uuid=ThreadUtil.getUUID();
+            Bean.Package bPackage=bean.bPackage;
+            List<Bean.Price> priceList=bean.priceList;
+            PreparedStatement preparedStatement=connection
+                    .prepareStatement("INSERT INTO MAFENGWO_TRAVEL_PRODUCT_INFO(" +
+                            "`PROD_UNI_CODE`,`OTA_ID`,`PROD_TYPE`,`OTA_PROD_ID`,`PROD_NAME`," +
+                            "`TA_NAME`,`PACKAGE_NAME`,`TRAVEL_PLAN`,`PROD_LINK`)" +
+                            "VALUES(?,?,?,?,?,?,?,?,?);");
+            String uuid=ThreadUtil.getUUID();
+            preparedStatement.setString(1,uuid);
+            preparedStatement.setInt(2,6);
+            preparedStatement.setString(3,"1");
+            preparedStatement.setString(4,bean.productId);
+            preparedStatement.setString(5,bean.productName);
+            preparedStatement.setString(6,bean.taName);
+            preparedStatement.setString(7,bPackage.name);
+            preparedStatement.setString(8, bPackage.path);
+            preparedStatement.setString(9,bean.productLink);
+            preparedStatement.execute();
+            preparedStatement.close();
+            preparedStatement=connection.prepareStatement("INSERT INTO MAFENGWO_TRAVEL_PRODUCT_PRICE(" +
+                    "`PROD_UNI_CODE`,`DATE`,`CITY`,`PRICE`) VALUES(?,?,?,?);");
+            for(Bean.Price bPrice:priceList){
                 preparedStatement.setString(1,uuid);
-                preparedStatement.setInt(2,6);
-                preparedStatement.setString(3,"1");
-                preparedStatement.setString(4,bean.productId);
-                preparedStatement.setString(5,bean.productName);
-                preparedStatement.setString(6,bean.taName);
-                preparedStatement.setString(7,bPackage.name);
-                if(bean.pathList.size()==0)
-                    preparedStatement.setString(8,"no path");
-                else if(bean.pathList.size()<i+1){
-                    preparedStatement.setString(8, "unusual path");
+                SimpleDateFormat format=new SimpleDateFormat("yyyy-MM-dd");
+                Date date=new Date();
+                try{
+                    date=format.parse(bPrice.date);
+                }catch(ParseException e){
+                    e.printStackTrace();
                 }
-                else{
-                    preparedStatement.setString(8, bean.pathList.get(i));
-                }
-                preparedStatement.setString(9,bean.productLink);
-                preparedStatement.execute();
-                preparedStatement.close();
-                List<Bean.Calendar> calendarList=bPackage.calendarList;
-                preparedStatement=connection.prepareStatement("INSERT INTO MAFENGWO_TRAVEL_PRODUCT_PRICE(" +
-                        "`PROD_UNI_CODE`,`DATE`,`CITY`,`PRICE`) VALUES(?,?,?,?);");
-                for(Bean.Calendar calendar:calendarList){
-                    String cityName=calendar.cityName;
-                    for(Map.Entry<String,String> entry:calendar.map.entrySet()){
-                        SimpleDateFormat format=new SimpleDateFormat("yyyy-MM-dd");
-                        Date date=new Date();
-                        try{
-                            date=format.parse(entry.getKey());
-                        }catch(ParseException e){
-                            e.printStackTrace();
-                        }
-                        double price=Double.parseDouble(entry.getValue());
-                        preparedStatement.setString(1,uuid);
-                        preparedStatement.setDate(2,new java.sql.Date(date.getTime()));
-                        preparedStatement.setString(3,cityName);
-                        preparedStatement.setDouble(4,(double)Math.round(price*100)/100);
-                        preparedStatement.addBatch();
-                    }
-                }
-                int [] rs=preparedStatement.executeBatch();
-                preparedStatement.close();
-                logger.info(bean.productLink+"-insert "+rs.length+"price data");
+                preparedStatement.setDate(2,new java.sql.Date(date.getTime()));
+                preparedStatement.setString(3,bPackage.cityName);
+                preparedStatement.setDouble(4,(float)Math.round(bPrice.price*100)/100);
+                preparedStatement.addBatch();
             }
+            int res[]=preparedStatement.executeBatch();
+            preparedStatement.close();
+            logger.info(bean.productLink+"-insert "+res.length+"price data");
             connection.close();
-
         }catch(SQLException e){
+            saveFailureTask(taskData);
             e.printStackTrace();
         }
     }
-
+    private void saveFailureTask(String taskData){
+        logger.info(taskData+" push to queue");
+        JedisUtil.lpush(FROM_QUEUE,taskData);
+    }
     @Override
     public String getTaskData(){
-        Jedis jedis=JedisUtil.getResource();
-        String taskData=jedis.lpop(FROM_QUEUE);
-        jedis.close();
-        return taskData;
+        return JedisUtil.rpop(FROM_QUEUE);
     }
 
     @Override
     public void crawl(String taskData){
-        saveData(gson.fromJson(taskData,Bean.class));
+        saveData(taskData);
     }
 }

@@ -33,19 +33,24 @@ public class ProductCrawler extends Crawler {
     private Gson gson;
     private int type;
     private Logger logger=LogManager.getLogger(ProductCrawler.class);
+
+    public ProductCrawler(CrawlerFactory factory){
+        super(factory);
+    }
+
     public ProductCrawler(CrawlerFactory factory,int type) {
         super(factory);
         this.type=type;
+        init();
     }
 
     public ProductCrawler(CrawlerFactory factory,int type,String name) {
         super(factory,name);
         this.type=type;
+        init();
     }
 
-    @Override
     public void init() {
-        super.init();
         gson=new Gson();
         taskQueue=buildTask();
         existData=getExistData();

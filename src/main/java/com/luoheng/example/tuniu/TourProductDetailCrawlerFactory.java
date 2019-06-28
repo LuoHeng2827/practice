@@ -27,4 +27,9 @@ public class TourProductDetailCrawlerFactory extends BasicCrawlerFactory<TourPro
         }
         return crawlerVector;
     }
+
+    @Override
+    public boolean shouldOver(){
+        return false;
+    }
 }

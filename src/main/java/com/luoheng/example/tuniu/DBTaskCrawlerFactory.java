@@ -24,4 +24,9 @@ public class DBTaskCrawlerFactory extends BasicCrawlerFactory<DBTaskCrawler>{
         }
         return dbTaskCrawlerVector;
     }
+
+    @Override
+    public boolean shouldOver(){
+        return false;
+    }
 }

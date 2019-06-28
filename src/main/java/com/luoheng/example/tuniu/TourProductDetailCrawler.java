@@ -28,19 +28,20 @@ public class TourProductDetailCrawler extends Crawler {
     private Logger logger= LogManager.getLogger(TourProductDetailCrawler.class);
     public TourProductDetailCrawler(CrawlerFactory factory) {
         super(factory);
+        init();
     }
 
     public TourProductDetailCrawler(CrawlerFactory factory, String name) {
         super(factory,name);
+        init();
     }
 
     public TourProductDetailCrawler(CrawlerFactory factory, String name, long crawlInterval) {
         super(factory,name,crawlInterval);
+        init();
     }
 
-    @Override
     public void init() {
-        super.init();
         gson=new Gson();
     }
 

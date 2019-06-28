@@ -2,6 +2,7 @@ package com.luoheng.example.mafengwo;
 
 import com.luoheng.example.lcrawler.BasicCrawlerFactory;
 import com.luoheng.example.lcrawler.CrawlerController;
+import com.luoheng.example.util.redis.JedisUtil;
 
 import java.util.Vector;
 
@@ -23,5 +24,11 @@ public class DBTaskCrawlerFactory extends BasicCrawlerFactory<DBTaskCrawler>{
             dbTaskCrawlerVector.add(crawler);
         }
         return dbTaskCrawlerVector;
+    }
+
+    @Override
+    public boolean shouldOver(){
+        long len=JedisUtil.llen(DBTaskCrawler.FROM_QUEUE);
+        return len<=0;
     }
 }

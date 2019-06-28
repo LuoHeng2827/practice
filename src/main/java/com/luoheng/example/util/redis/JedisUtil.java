@@ -20,9 +20,11 @@ public class JedisUtil {
     public void returnResource(Jedis jedis){
         if(jedis!=null)
             jedis.close();
+
     }
 
     private static void initJedisPool(){
+
         config=new JedisPoolConfig();
         config.setMaxWaitMillis(10000L);
         config.setMaxIdle(3000);
@@ -46,6 +48,45 @@ public class JedisUtil {
             }
         }
         return jedisPool;
+    }
+    public static void lpush(String queueName,String... strings){
+        Jedis jedis=getResource();
+        jedis.lpush(queueName,strings);
+        jedis.close();
+    }
+
+    public static void rpush(String queueName,String... strings){
+        Jedis jedis=getResource();
+        jedis.rpush(queueName,strings);
+        jedis.close();
+    }
+
+    public static String lpop(String queueName){
+        Jedis jedis=getResource();
+        String data=jedis.lpop(queueName);
+        jedis.close();
+        return data;
+    }
+
+    public static String rpop(String queueName){
+        Jedis jedis=getResource();
+        String data=jedis.rpop(queueName);
+        jedis.close();
+        return data;
+    }
+
+    public static long llen(String queueName){
+        Jedis jedis=getResource();
+        long len=jedis.llen(queueName);
+        jedis.close();
+        return len;
+    }
+
+    public static String get(String key){
+        Jedis jedis=getResource();
+        String data=jedis.get(key);
+        jedis.close();
+        return data;
     }
 
     public static JedisPool getJedisPool() {

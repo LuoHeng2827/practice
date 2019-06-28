@@ -1,5 +1,8 @@
 package com.luoheng.example.util;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -15,8 +18,16 @@ public class CodeUtil{
         }
         return unicode;
     }
-    public static void main(String[] args){
-        String s="\\u8eab\\u9ad8600\\u7c73";
-        System.out.println(unicodeToChinese(s));
+    public static void main(String[] args) throws Exception{
+        String s;
+        File file=new File("./test.txt");
+        BufferedReader reader=new BufferedReader(new FileReader(file));
+        StringBuilder builder=new StringBuilder();
+        String line=null;
+        while((line=reader.readLine())!=null){
+            builder.append(line);
+        }
+
+        System.out.println(unicodeToChinese(builder.toString()));
     }
 }

@@ -28,4 +28,9 @@ public class Crawler2Factory extends BasicCrawlerFactory<Crawler2>{
         }
         return crawler2Vector;
     }
+
+    @Override
+    public boolean shouldOver(){
+        return false;
+    }
 }

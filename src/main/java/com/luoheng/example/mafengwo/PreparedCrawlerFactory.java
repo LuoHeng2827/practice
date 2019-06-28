@@ -28,4 +28,9 @@ public class PreparedCrawlerFactory extends BasicCrawlerFactory<PreparedCrawler>
         }
         return crawlerVector;
     }
+
+    @Override
+    public boolean shouldOver(){
+        return PreparedCrawler.shouldOver;
+    }
 }

@@ -77,15 +77,9 @@ public abstract class BasicCrawlerFactory<T extends Crawler> implements CrawlerF
         if(isOver())
             return;
         if(isStop()){
-            boolean over=true;
-            Vector<T> crawlerVector=(Vector<T>)controller.getFactoryVector(this);
-            for(T crawler:crawlerVector){
-                crawler.overThis();
-                if(crawler.isAlive()){
-                    over=false;
-                }
+            if(shouldOver()){
+                this.over=true;
             }
-            this.over=over;
             if(isOver())
                 logger.info(this.name+" is overThis");
         }
@@ -109,5 +103,7 @@ public abstract class BasicCrawlerFactory<T extends Crawler> implements CrawlerF
     public boolean isPause() {
         return pause;
     }
+
+    public abstract boolean shouldOver();
 
 }

@@ -8,11 +8,13 @@ public class Core{
     public static void main(String[] args) throws Exception{
         CrawlerController controller=new CrawlerController();
         PreparedCrawlerFactory preparedCrawlerFactory=new PreparedCrawlerFactory(controller);
-        DetailCrawlerFactory detailCrawlerFactory=new DetailCrawlerFactory(controller);
+        InfoCrawlerFactory infoCrawlerFactory=new InfoCrawlerFactory(controller);
+        PriceCrawlerFactory priceCrawlerFactory=new PriceCrawlerFactory(controller);
         DBTaskCrawlerFactory dbTaskCrawlerFactory=new DBTaskCrawlerFactory(controller);
         controller.add(preparedCrawlerFactory,1)
-                .add(detailCrawlerFactory,20)
-                .add(dbTaskCrawlerFactory,5);
+                .add(infoCrawlerFactory,1)
+                .add(priceCrawlerFactory,1)
+                .add(dbTaskCrawlerFactory,1);
         controller.start();
         while(!controller.isComplete()){
             ThreadUtil.waitMillis(1000*3);

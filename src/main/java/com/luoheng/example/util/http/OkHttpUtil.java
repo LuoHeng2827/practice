@@ -40,8 +40,7 @@ public class OkHttpUtil{
     public static Response doGetByProxy(String url,Map<String,String> params,
                                  Map<String,String> headers) throws IOException{
         Gson gson=new Gson();
-        Jedis jedis=JedisUtil.getResource();
-        String jsonStr=jedis.get("proxy");
+        String jsonStr=JedisUtil.get("proxy");
         JsonArray jsonArray=gson.fromJson(jsonStr,JsonArray.class);
         Random random=new Random(new Date().getTime());
         int index=random.nextInt(jsonArray.size());
