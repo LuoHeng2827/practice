@@ -1,4 +1,4 @@
-package com.luoheng.example.xiecheng;
+package com.luoheng.example.tongcheng;
 
 import com.google.gson.Gson;
 import com.luoheng.example.lcrawler.Crawler;
@@ -15,16 +15,16 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
-/**
- * 通过搜索界面获得产品链接
- */
 public class ProductListCrawler extends Crawler{
     static boolean shouldOver=false;
-    private static final String[] TARGET_URLS={"https://vacations.ctrip.com/tours/d-yunnan-100007/around/p%s"
-            ,"https://vacations.ctrip.com/tours/d-yunnan-100007/grouptravel/p%s"};
-    public static final String FROM_QUEUE="list_xiecheng_task";
-    public static final String TO_QUEUE="list_xiecheng_product_href";
+    private static final String HOST_URL="https://gny.ly.com";
+    public static final String FROM_QUEUE="tongcheng_product_task";
+    public static final String TO_QUEUE="tongcheng_product_href";
+    private static final String[] taskUrls={"https://gny.ly.com/list?src=北京&dest=云南&prop=1",
+            "https://gny.ly.com/list?src=北京&dest=云南&prop=5"};
     private Gson gson=new Gson();
     private Logger logger=LogManager.getLogger(ProductListCrawler.class);
     public ProductListCrawler(CrawlerFactory factory){
@@ -46,73 +46,78 @@ public class ProductListCrawler extends Crawler{
         buildTask();
     }
 
-    /**
-     * 访问搜索界面第一页来获得最大页数，拼接链接和页数丢到TO_QUEUE队列
-     */
     private void buildTask(){
-        for(String url:TARGET_URLS){
-            try{
-                HttpResponse response=HttpClientUtil.doGet(String.format(url,1),
-                        null,null,true,number);
+        try{
+            for(String taskUrl:taskUrls){
+                Map<String,String> headers=new HashMap<>();
+                headers.put("cookie",Core.cookie);
+                HttpResponse response=HttpClientUtil.doGet(taskUrl,null,headers);
                 int code=response.getStatusLine().getStatusCode();
                 if(code==200){
                     String responseStr=EntityUtils.toString(response.getEntity());
                     Document document=Jsoup.parse(responseStr);
-                    Element _pg=document.getElementById("_pg");
-                    Elements as=_pg.getElementsByTag("a");
-                    int maxPage=Integer.parseInt(as.get(as.size()-2).text());
-                    for(int i=0;i<maxPage;i++){
-                        JedisUtil.lpush(FROM_QUEUE,String.format(url,i+1));
+                    Elements cityBoxes=document.getElementsByClass("citybox-cont md-nor");
+                    int totalCount=Integer.parseInt(document.getElementById("TotalCount").attr("value"));
+                    int maxPage=totalCount%20==0?totalCount/20:totalCount/20+1;
+                    for(Element cityBox:cityBoxes){
+                        Elements as=cityBox.getElementsByTag("a");
+                        for(Element a:as){
+                            for(int i=1;i<=maxPage;i++){
+                                JedisUtil.lpush(FROM_QUEUE,HOST_URL+a.attr("href")+"&start="+i);
+                            }
+                        }
                     }
                 }
                 else{
-                    logger.info("error to build task,code is "+code);
+                    logger.error("failed to build tasks");
                     System.exit(-1);
                 }
-            }catch(IOException e){
-                e.printStackTrace();
             }
+        }catch(IOException e){
+            logger.error("failed to build tasks");
+            System.exit(-1);
         }
     }
 
-
     @Override
     public String getTaskData(){
-        return JedisUtil.rpop(FROM_QUEUE);
+        String taskData=JedisUtil.rpop(FROM_QUEUE);
+        if(taskData==null)
+            shouldOver=true;
+        return taskData;
     }
 
-    //获得产品链接
     @Override
     public void crawl(String taskData){
         try{
-            HttpResponse response=HttpClientUtil.doGet(taskData,null,null,true,number);
+            Map<String,String> headers=new HashMap<>();
+            headers.put("cookie",Core.cookie);
+            HttpResponse response=HttpClientUtil.doGet(taskData,null,headers);
             int code=response.getStatusLine().getStatusCode();
             if(code==200){
                 String responseStr=EntityUtils.toString(response.getEntity());
                 Document document=Jsoup.parse(responseStr);
-                Elements products=document.getElementsByClass("main_mod product_box flag_product ");
-
-                for(Element product:products){
-                    String href=product.getElementsByClass("product_pic")
-                            .get(0).getElementsByTag("a").get(0).attr("href");
-                    JedisUtil.lpush(TO_QUEUE,"https:"+href);
+                Elements as=document.getElementById("line-lsit").getElementsByTag("a");
+                for(Element a:as){
+                    //logger.info(HOST_URL+a.attr("href"));
+                    JedisUtil.lpush(TO_QUEUE,HOST_URL+a.attr("href"));
                 }
             }
             else{
-                logger.info("failed,code is "+code);
+                logger.info("failed!code is "+code);
+                JedisUtil.lpush(FROM_QUEUE,taskData);
             }
         }catch(Exception e){
             JedisUtil.lpush(FROM_QUEUE,taskData);
+            Core.saveErrorMsg(taskData);
             if(e instanceof IOException){
-                e.printStackTrace();
+                logger.info("IOException");
             }
             else{
-                Core.saveErrorMsg(e.getMessage());
                 e.printStackTrace();
             }
         }
     }
-
     public static void main(String[] args){
         ProductListCrawler crawler=new ProductListCrawler(null);
         crawler.start();

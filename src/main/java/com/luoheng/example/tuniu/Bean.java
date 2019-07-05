@@ -11,7 +11,7 @@ public class Bean{
     String productLink;
     String taName;
     List<Package> packageList=new ArrayList<>();
-    List<String> path=new ArrayList<>();
+    List<String> pathList=new ArrayList<>();
 
     public Calendar newCalendar(){
         return new Calendar();
@@ -62,7 +62,7 @@ public class Bean{
                 ", productLink='"+productLink+'\''+
                 ", taName='"+taName+'\''+
                 ", packageList="+packageList+
-                ", path="+path+
+                ", pathList="+pathList+
                 '}';
     }
 

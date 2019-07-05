@@ -5,6 +5,8 @@ import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
 
+import java.util.List;
+
 
 public class JedisUtil {
     private static JedisPool jedisPool;
@@ -82,11 +84,25 @@ public class JedisUtil {
         return len;
     }
 
+    public static List<String> lrange(String queueName,long start,long end){
+        Jedis jedis=getResource();
+        List<String> list=jedis.lrange(queueName,start,end);
+        jedis.close();
+        return list;
+    }
+
     public static String get(String key){
         Jedis jedis=getResource();
         String data=jedis.get(key);
         jedis.close();
         return data;
+    }
+
+    public static long del(String... key){
+        Jedis jedis=getResource();
+        long num=jedis.del(key);
+        jedis.close();
+        return num;
     }
 
     public static JedisPool getJedisPool() {

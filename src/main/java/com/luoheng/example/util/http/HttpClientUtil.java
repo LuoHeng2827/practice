@@ -8,10 +8,12 @@ import com.luoheng.example.util.redis.JedisUtil;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
+import org.apache.http.client.config.CookieSpecs;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpRequestBase;
+import org.apache.http.cookie.CookieSpec;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
@@ -23,9 +25,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class HttpClientUtil{
-    private static final int DEFAULT_CONNECT_TIMEOUT=5000;
-    private static final int DEFAULT_CONNECT_REQUEST_TIMEOUT=5000;
-    private static final int DEFAULT_SOCKET_TIMEOUT=5000;
+    private static final int DEFAULT_CONNECT_TIMEOUT=10000;
+    private static final int DEFAULT_CONNECT_REQUEST_TIMEOUT=10000;
+    private static final int DEFAULT_SOCKET_TIMEOUT=10000;
     private static final int DEFAULT_PROXY_CONNECT_TIMEOUT=15000;
     private static final int DEFAULT_PROXY_CONNECT_REQUEST_TIMEOUT=15000;
     private static final int DEFAULT_PROXY_SOCKET_TIMEOUT=15000;
@@ -62,6 +64,7 @@ public class HttpClientUtil{
         RequestConfig.Builder configBuilder=null;
         if(isProxy){
             configBuilder=RequestConfig.custom()
+                    .setCookieSpec(CookieSpecs.STANDARD)
                     .setConnectTimeout(DEFAULT_PROXY_CONNECT_TIMEOUT)
                     .setConnectionRequestTimeout(DEFAULT_PROXY_CONNECT_REQUEST_TIMEOUT)
                     .setSocketTimeout(DEFAULT_PROXY_SOCKET_TIMEOUT)
@@ -69,27 +72,48 @@ public class HttpClientUtil{
         }
         else{
             configBuilder=RequestConfig.custom()
+                    .setCookieSpec(CookieSpecs.STANDARD)
                     .setConnectTimeout(DEFAULT_CONNECT_TIMEOUT)
                     .setConnectionRequestTimeout(DEFAULT_CONNECT_REQUEST_TIMEOUT)
                     .setSocketTimeout(DEFAULT_SOCKET_TIMEOUT);
         }
         RequestConfig config=configBuilder.build();
         httpGet.setConfig(config);
-        for(Map.Entry<String,String> entry:headers.entrySet()){
-            httpGet.addHeader(entry.getKey(),entry.getValue());
-        }
         return client.execute(httpGet);
     }
 
     public static HttpResponse doPost(String url,Map<String,String> params,Map<String,String> headers,
                                       HttpEntity entity) throws IOException{
+        return doPost(url, params, headers, entity,false,-1);
+    }
+
+    public static HttpResponse doPost(String url,Map<String,String> params,Map<String,String> headers,
+                                      HttpEntity entity,boolean isProxy,int number) throws IOException{
         if(headers==null)
             headers=new HashMap<>();
         if(params==null)
             params=new HashMap<>();
         CloseableHttpClient client=HttpClientBuilder.create().build();
         HttpPost httpPost=new HttpPost(generateGetParams(url, params));
+        addHeaders(httpPost,headers);
         httpPost.setEntity(entity);
+        RequestConfig.Builder configBuilder;
+        if(isProxy){
+            configBuilder=RequestConfig.custom()
+                    .setCookieSpec(CookieSpecs.STANDARD)
+                    .setConnectTimeout(DEFAULT_PROXY_CONNECT_TIMEOUT)
+                    .setConnectionRequestTimeout(DEFAULT_PROXY_CONNECT_REQUEST_TIMEOUT)
+                    .setSocketTimeout(DEFAULT_PROXY_SOCKET_TIMEOUT)
+                    .setProxy(getHttpHost(number));
+        }
+        else{
+            configBuilder=RequestConfig.custom()
+                    .setCookieSpec(CookieSpecs.STANDARD)
+                    .setConnectTimeout(DEFAULT_CONNECT_TIMEOUT)
+                    .setConnectionRequestTimeout(DEFAULT_CONNECT_REQUEST_TIMEOUT)
+                    .setSocketTimeout(DEFAULT_SOCKET_TIMEOUT);
+        }
+        httpPost.setConfig(configBuilder.build());
         return client.execute(httpPost);
     }
 

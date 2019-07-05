@@ -5,12 +5,12 @@ import com.luoheng.example.lcrawler.CrawlerController;
 
 import java.util.Vector;
 
-public class DocCrawlerFactory extends BasicCrawlerFactory<DocCrawler>{
-    public DocCrawlerFactory(CrawlerController controller){
+public class InfoCrawlerFactory extends BasicCrawlerFactory<InfoCrawler>{
+    public InfoCrawlerFactory(CrawlerController controller){
         super(controller);
     }
 
-    public DocCrawlerFactory(CrawlerController controller,String name){
+    public InfoCrawlerFactory(CrawlerController controller,String name){
         super(controller,name);
     }
 
@@ -20,15 +20,16 @@ public class DocCrawlerFactory extends BasicCrawlerFactory<DocCrawler>{
     }
 
     @Override
-    public DocCrawler newInstance(){
-        return new DocCrawler(this);
+    public InfoCrawler newInstance(){
+        return new InfoCrawler(this);
     }
 
     @Override
-    public Vector<DocCrawler> newVector(int count){
-        Vector<DocCrawler> crawlerVector=new Vector<>();
+    public Vector<InfoCrawler> newVector(int count){
+        Vector<InfoCrawler> crawlerVector=new Vector<>();
         for(int i=0;i<count;i++){
-            DocCrawler crawler=newInstance();
+            InfoCrawler crawler=newInstance();
+            crawler.setNumber(i);
             crawlerVector.add(crawler);
         }
         return crawlerVector;

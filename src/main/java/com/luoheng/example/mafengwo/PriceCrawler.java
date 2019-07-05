@@ -39,17 +39,6 @@ public class PriceCrawler extends Crawler{
     public String getTaskData(){
         String taskData=JedisUtil.rpop(FROM_QUEUE);
         return taskData;
-        /*Bean bean=new Bean();
-        Bean.Package bPackage=bean.newPackage();
-        bPackage.cityName="xxx";
-        bPackage.groupId="5575727";
-        bPackage.id="35899432";
-        bPackage.name="xxx";
-        bean.productId="123456";
-        bean.productLink="www.xxx.com";
-        bean.taName="xxx";
-        bean.bPackage=bPackage;
-        return gson.toJson(bean);*/
     }
 
     private boolean getCalendar(Bean bean) throws IOException{
