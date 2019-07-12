@@ -3,6 +3,7 @@ package com.luoheng.example.xiecheng;
 import com.google.gson.*;
 import com.luoheng.example.lcrawler.Crawler;
 import com.luoheng.example.lcrawler.CrawlerFactory;
+import com.luoheng.example.util.PropertiesUtil;
 import com.luoheng.example.util.http.HttpClientUtil;
 import com.luoheng.example.util.redis.JedisUtil;
 import org.apache.http.HttpResponse;
@@ -14,6 +15,7 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.yaml.snakeyaml.introspector.PropertyUtils;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -100,7 +102,8 @@ public class InfoCrawler extends Crawler{
         String productId=parseLinkId(productLink);
         StringEntity entity=new StringEntity(buildCalendarRequestJson(productId,cityCode),Charset.forName("UTF-8"));
         entity.setContentType("application/json");
-        HttpResponse response=HttpClientUtil.doPost(CALENDAR_URL,params,headers,entity,true,number);
+        HttpResponse response=HttpClientUtil.doPost(CALENDAR_URL,params,headers,entity,
+                Boolean.valueOf(PropertiesUtil.getValue("proxy.use")),number);
         int responseCode=response.getStatusLine().getStatusCode();
         if(responseCode==200){
             String responseStr=EntityUtils.toString(response.getEntity());
@@ -128,7 +131,7 @@ public class InfoCrawler extends Crawler{
     private boolean crawlBasicInfo(String url,Bean bean) throws Exception{
         Map<String,String> params=new HashMap<>();
         Map<String,String> headers=new HashMap<>();
-        HttpResponse response=HttpClientUtil.doGet(url,params,headers,true,number);
+        HttpResponse response=HttpClientUtil.doGet(url,params,headers,Boolean.valueOf(PropertiesUtil.getValue("proxy.use")),number);
         int code=response.getStatusLine().getStatusCode();
         if(code==200){
             String responseStr=EntityUtils.toString(response.getEntity());
@@ -166,7 +169,8 @@ public class InfoCrawler extends Crawler{
     }
 
     private int getPackageNumber(String productLink) throws Exception{
-        HttpResponse response=HttpClientUtil.doGet(productLink,null,null,true,number);
+        HttpResponse response=HttpClientUtil.doGet(productLink,null,null,
+                Boolean.valueOf(PropertiesUtil.getValue("proxy.use")),number);
         int code=response.getStatusLine().getStatusCode();
         if(code==200){
             String responseStr=EntityUtils.toString(response.getEntity());
@@ -191,7 +195,8 @@ public class InfoCrawler extends Crawler{
         StringEntity entity=new StringEntity(buildDetailTimingRequestJson(productId,cityCode,packageNum),
                 Charset.forName("UTF-8"));
         entity.setContentType("application/json");
-        HttpResponse response=HttpClientUtil.doPost(DETAIL_TIMING_URL,params,headers,entity,true,number);
+        HttpResponse response=HttpClientUtil.doPost(DETAIL_TIMING_URL,params,headers,entity,
+                Boolean.valueOf(PropertiesUtil.getValue("proxy.use")),number);
         int code=response.getStatusLine().getStatusCode();
         if(code==200){
             String responseStr=EntityUtils.toString(response.getEntity());

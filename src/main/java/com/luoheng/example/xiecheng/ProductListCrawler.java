@@ -3,6 +3,7 @@ package com.luoheng.example.xiecheng;
 import com.google.gson.Gson;
 import com.luoheng.example.lcrawler.Crawler;
 import com.luoheng.example.lcrawler.CrawlerFactory;
+import com.luoheng.example.util.PropertiesUtil;
 import com.luoheng.example.util.http.HttpClientUtil;
 import com.luoheng.example.util.redis.JedisUtil;
 import org.apache.http.HttpResponse;
@@ -13,6 +14,7 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.yaml.snakeyaml.introspector.PropertyUtils;
 
 import java.io.IOException;
 
@@ -52,8 +54,8 @@ public class ProductListCrawler extends Crawler{
     private void buildTask(){
         for(String url:TARGET_URLS){
             try{
-                HttpResponse response=HttpClientUtil.doGet(String.format(url,1),
-                        null,null,true,number);
+                HttpResponse response=HttpClientUtil.doGet(String.format(url,1),null,null,
+                        Boolean.valueOf(PropertiesUtil.getValue("proxy.use")),number);
                 int code=response.getStatusLine().getStatusCode();
                 if(code==200){
                     String responseStr=EntityUtils.toString(response.getEntity());
@@ -85,7 +87,8 @@ public class ProductListCrawler extends Crawler{
     @Override
     public void crawl(String taskData){
         try{
-            HttpResponse response=HttpClientUtil.doGet(taskData,null,null,true,number);
+            HttpResponse response=HttpClientUtil.doGet(taskData,null,null,
+                    Boolean.valueOf(PropertiesUtil.getValue("proxy.use")),number);
             int code=response.getStatusLine().getStatusCode();
             if(code==200){
                 String responseStr=EntityUtils.toString(response.getEntity());

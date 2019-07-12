@@ -1,4 +1,4 @@
-package com.luoheng.example.tuniu;
+package com.luoheng.example._tuniu;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -20,7 +20,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 public class DBTaskCrawler extends Crawler{
-    private static final String FROM_QUEUE="list_tuniu_tour_db";
+    private static final String FROM_QUEUE="list_tuniu_db";
     private Gson gson=new Gson();
     private Logger logger=LogManager.getLogger(DBTaskCrawler.class);
     public DBTaskCrawler(CrawlerFactory factory){

@@ -3,6 +3,7 @@ package com.luoheng.example.xiecheng;
 import com.google.gson.*;
 import com.luoheng.example.lcrawler.Crawler;
 import com.luoheng.example.lcrawler.CrawlerFactory;
+import com.luoheng.example.util.PropertiesUtil;
 import com.luoheng.example.util.http.HttpClientUtil;
 import com.luoheng.example.util.redis.JedisUtil;
 import org.apache.http.HttpResponse;
@@ -63,7 +64,8 @@ public class HrefCrawler extends Crawler{
         Map<String,String> headers=new HashMap<>();
         StringEntity entity=new StringEntity(buildDetailTimingRequestJson(productId),Charset.forName("UTF-8"));
         entity.setContentType("application/json");
-        HttpResponse response=HttpClientUtil.doPost(DETAIL_TIMING_URL,params,headers,entity,true,number);
+        HttpResponse response=HttpClientUtil.doPost(DETAIL_TIMING_URL,params,headers,entity,
+                Boolean.parseBoolean(PropertiesUtil.getValue("proxy.use")),number);
         int code=response.getStatusLine().getStatusCode();
         if(code==200){
             String responseStr=EntityUtils.toString(response.getEntity());

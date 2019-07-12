@@ -1,4 +1,4 @@
-package com.luoheng.example.tuniu;
+package com.luoheng.example._tuniu;
 
 import java.util.ArrayList;
 import java.util.HashMap;

@@ -1,8 +1,9 @@
-package com.luoheng.example.tuniu;
+package com.luoheng.example._tuniu;
 
 import com.google.gson.*;
 import com.luoheng.example.lcrawler.Crawler;
 import com.luoheng.example.lcrawler.CrawlerFactory;
+import com.luoheng.example.util.ExceptionUtil;
 import com.luoheng.example.util.http.OkHttpUtil;
 import com.luoheng.example.util.redis.JedisUtil;
 import okhttp3.Response;
@@ -14,9 +15,9 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-public class TourProductDetailCrawler extends Crawler {
-    private static final String FROM_QUEUE="list_tuniu_tour_product_id";
-    private static final String TO_QUEUE="list_tuniu_tour_db";
+public class InfoCrawler extends Crawler {
+    private static final String FROM_QUEUE="list_tuniu_product_id";
+    private static final String TO_QUEUE="list_tuniu_db";
     private static final String HTML_URL="https://m.tuniu.com/tour/%s";
     private static final String CITY_URL="https://m.tuniu.com/wap-detail/api/group/city";
     private static final String DETAIL_URL="https://m.tuniu.com/wap-detail/api/self/detail/getProductInfo";
@@ -25,18 +26,18 @@ public class TourProductDetailCrawler extends Crawler {
     private static final String JOURNEY_URL="https://m.tuniu.com/wap-detail/api/group/journey";
     private static final String TEMPLATE_TOUR_PRODUCT_LINK="http://www.tuniu.com/tour/%s";
     private Gson gson;
-    private Logger logger= LogManager.getLogger(TourProductDetailCrawler.class);
-    public TourProductDetailCrawler(CrawlerFactory factory) {
+    private Logger logger= LogManager.getLogger(InfoCrawler.class);
+    public InfoCrawler(CrawlerFactory factory) {
         super(factory);
         init();
     }
 
-    public TourProductDetailCrawler(CrawlerFactory factory, String name) {
+    public InfoCrawler(CrawlerFactory factory,String name) {
         super(factory,name);
         init();
     }
 
-    public TourProductDetailCrawler(CrawlerFactory factory, String name, long crawlInterval) {
+    public InfoCrawler(CrawlerFactory factory,String name,long crawlInterval) {
         super(factory,name,crawlInterval);
         init();
     }
@@ -47,11 +48,7 @@ public class TourProductDetailCrawler extends Crawler {
 
     @Override
     public String getTaskData() {
-        Jedis jedis=JedisUtil.getResource();
-        String productId;
-        productId=jedis.lpop(FROM_QUEUE);
-        jedis.close();
-        return productId;
+        return JedisUtil.rpop(FROM_QUEUE);
     }
 
     private Map<String,Integer> getCityInfo(String taskData) throws IOException{
@@ -165,7 +162,8 @@ public class TourProductDetailCrawler extends Crawler {
             for(int i=0;i<calendarInfos.size();i++){
                 JsonArray calendarDetails=calendarInfos.get(i)
                         .getAsJsonObject().getAsJsonArray("calendarDetails");
-                for(int j=0;j<calendarDetails.size();j++){
+                int day=Math.min(7,calendarDetails.size());
+                for(int j=0;j<day;j++){
                     JsonObject object=calendarDetails.get(j).getAsJsonObject();
                     JsonObject objectResult=new JsonObject();
                     objectResult.addProperty("planDate",object.get("planDate").getAsString());
@@ -278,16 +276,20 @@ public class TourProductDetailCrawler extends Crawler {
                 return;
             getProductJourney(taskData,result);
             getProductVendor(cityInfo,taskData,result);
-            Jedis jedis=JedisUtil.getResource();
-            jedis.lpush(TO_QUEUE,result.toString());
-            jedis.close();
-        }catch(IOException e){
+            JedisUtil.lpush(TO_QUEUE,result.toString());
+        }catch(Exception e){
             e.printStackTrace();
+            if(e instanceof IOException){
+                JedisUtil.lpush(FROM_QUEUE,taskData);
+            }
+            else{
+                Core.saveErrorMsg(taskData+"\n"+ExceptionUtil.getTotal(e));
+            }
         }
         logger.info("end");
     }
     public static void main(String[] args){
-        TourProductDetailCrawler crawler=new TourProductDetailCrawler(null);
+        InfoCrawler crawler=new InfoCrawler(null);
         crawler.start();
     }
 }

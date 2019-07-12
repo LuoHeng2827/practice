@@ -1,12 +1,11 @@
 package com.luoheng.example.mafengwo;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
+import com.google.gson.*;
 import com.luoheng.example.lcrawler.Crawler;
 import com.luoheng.example.lcrawler.CrawlerFactory;
 import com.luoheng.example.util.CodeUtil;
+import com.luoheng.example.util.ExceptionUtil;
+import com.luoheng.example.util.PropertiesUtil;
 import com.luoheng.example.util.http.HttpClientUtil;
 import com.luoheng.example.util.redis.JedisUtil;
 import org.apache.http.HttpEntity;
@@ -16,16 +15,21 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
-import java.io.InterruptedIOException;
-import java.net.SocketException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class InfoCrawler extends Crawler{
     private static final String HTML_URL="http://www.mafengwo.cn/sales/%s.html";
+    //获得产品基本信息的链接
     private static final String INDEX_INFO_URL="http://www.mafengwo.cn/sales/detail/index/info";
+    //获得套餐的相关信息及路线
     private static final String STOCK_INFO_URL="http://www.mafengwo.cn/sales/detail/stock/info";
+    //获得价格日历的相关信息
+    private static final String DETAIL_URL="http://www.mafengwo.cn/sales/detail/stock/detail";
     public static final String FROM_QUEUE="list_mafengwo_product_id";
-    public static final String TO_QUEUE="list_mafengwo_product_info";
+    public static final String TO_QUEUE="list_mafengwo_db";
     private Logger logger=LogManager.getLogger(InfoCrawler.class);
     private Gson gson;
     public InfoCrawler(CrawlerFactory factory){
@@ -59,9 +63,9 @@ public class InfoCrawler extends Crawler{
      * @param taskData 产品id
      * @param bean
      * @return
-     * @throws IOException
+     * @throws Exception
      */
-    private boolean crawlIndexInfo(String taskData,Bean bean,List<String> pathList) throws IOException{
+    private boolean crawlIndexInfo(String taskData,Bean bean,List<String> pathList) throws Exception{
         Map<String,String> params=new HashMap<>();
         Map<String,String> headers=new HashMap<>();
         params.put("id",taskData);
@@ -69,7 +73,8 @@ public class InfoCrawler extends Crawler{
         headers.put("Referer","http://www.mafengwo.cn/sales/6066578.html");
         bean.productId=taskData;
         bean.productLink=String.format(HTML_URL,taskData);
-        HttpResponse response=HttpClientUtil.doGet(INDEX_INFO_URL,params,headers,true,number);
+        HttpResponse response=HttpClientUtil.doGet(INDEX_INFO_URL,params,headers,
+                Boolean.valueOf(PropertiesUtil.getValue("proxy.use")),number);
         if(response.getStatusLine().getStatusCode()==200){
             HttpEntity entity=response.getEntity();
             String responseStr=EntityUtils.toString(entity);
@@ -94,74 +99,104 @@ public class InfoCrawler extends Crawler{
                     }
                 }
                 if(index!=-1){
-                    pathList.add(getPath(content.get(i).getAsJsonObject()
+                    pathList.add(crawlPath(content.get(i).getAsJsonObject()
                             .getAsJsonArray("content")
                             .get(index).getAsJsonObject().getAsJsonArray("content")));
                 }
             }
         }
         else{
-            logger.info("failed to request "+taskData+","+response.getStatusLine().getStatusCode());
+            logger.info("failed to request "+taskData+",code is "+response.getStatusLine().getStatusCode());
             return false;
         }
         return true;
     }
 
-    private void saveFailureTask(String taskData){
-        logger.info(taskData+" push to queue");
-        JedisUtil.lpush(FROM_QUEUE,taskData);
+    //获取价格日历
+    private boolean crawlCalendar(Bean bean,String[] packageIds) throws Exception{
+        Map<String,String> params=new HashMap<>();
+        Map<String,String> header=new HashMap<>();
+        params.put("groupId",bean.productId);
+        for(String packageId:packageIds){
+            params.put("skuIds[]",packageId);
+        }
+        HttpResponse response=HttpClientUtil.doGet(DETAIL_URL,params,header,
+                Boolean.valueOf(PropertiesUtil.getValue("proxy.use")),number);
+        int responseCode=response.getStatusLine().getStatusCode();
+        if(responseCode==200){
+            String responseStr=EntityUtils.toString(response.getEntity());
+            JsonObject jsonObject=gson.fromJson(responseStr,JsonObject.class);
+            if(jsonObject.get("data") instanceof JsonNull)
+                return true;
+            JsonArray sku=jsonObject.getAsJsonObject("data")
+                    .getAsJsonArray("sku");
+            for(int i=0;i<sku.size();i++){
+                JsonObject skuItem=sku.get(i).getAsJsonObject();
+                JsonArray calendar=skuItem.get("calendar").getAsJsonArray();
+                int saveDay=Math.min(7,calendar.size()/2);
+                Map<String,String> calendarMap=new HashMap<>();
+                bean.priceList.clear();
+                for(int j=0;j<calendar.size()&&calendarMap.size()<saveDay;j++){
+                    JsonObject calendarItem=calendar.get(j).getAsJsonObject();
+                    String dateStr=calendarItem.get("date").getAsString();
+                    String priceStr=calendarItem.get("price").getAsString();
+                    if(calendarMap.containsKey(dateStr))
+                        continue;
+                    calendarMap.put(dateStr,priceStr);
+                    Bean.Price price=bean.newPrice();
+                    price.price=Float.parseFloat(priceStr);
+                    price.date=dateStr;
+                    bean.priceList.add(price);
+                }
+                //logger.info(gson.toJson(bean));
+                JedisUtil.lpush(TO_QUEUE,gson.toJson(bean));
+            }
+        }
+        else{
+            logger.info("failed to request,code is "+responseCode);
+            return false;
+        }
+        return true;
     }
 
-
-    /**
-     *
-     * @param bean
-     * @return
-     * @throws IOException
-     */
-    private boolean getStockInfo(Bean bean,List<String> pathList) throws IOException{
+    //获得套餐的数量和信息，并将保存的路线传给相应的套餐
+    private boolean getStockInfo(Bean bean,List<String> pathList) throws Exception{
         Map<String,String> params=new HashMap<>();
         Map<String,String> headers=new HashMap<>();
         headers.put("host","www.mafengwo.cn");
         headers.put("Referer",String.format("http://www.mafengwo.cn/sales/%s.html",bean.productId));
         params.put("groupId",bean.productId);
-        HttpResponse response=HttpClientUtil.doGet(STOCK_INFO_URL,params,headers,true,number);
+        HttpResponse response=HttpClientUtil.doGet(STOCK_INFO_URL,params,headers,
+                Boolean.valueOf(PropertiesUtil.getValue("proxy.use")),number);
         if(response.getStatusLine().getStatusCode()==200){
             String responseStr=EntityUtils.toString(response.getEntity());
             JsonObject jsonObject=gson.fromJson(CodeUtil.unicodeToChinese(responseStr),JsonObject.class);
             JsonObject data=jsonObject.get("data").getAsJsonObject();
             JsonArray sku=data.getAsJsonArray("sku");
+            String[] packageIds=new String[sku.size()];
+            //遍历套餐
             for(int i=0;i<sku.size();i++){
                 Bean.Package bPackage=bean.newPackage();
                 bean.bPackage=bPackage;
                 bPackage.name=sku.get(i).getAsJsonObject().get("name").getAsString();
-                bPackage.id=sku.get(i).getAsJsonObject().get("id").getAsString();
+                packageIds[i]=sku.get(i).getAsJsonObject().get("id").getAsString();
                 if(pathList.size()==0)
                     bPackage.path="null";
                 else if(pathList.size()<i+1)
                     bPackage.path="unusual path";
                 else
                     bPackage.path=pathList.get(i);
-                if(data.has("depature")){
-                    JsonObject departure=data.getAsJsonObject("depature");
-                    for(Map.Entry<String,JsonElement> entry:departure.entrySet()){
-                        String groupId=entry.getKey();
-                        JsonObject value=entry.getValue().getAsJsonObject();
-                        bPackage.groupId=groupId;
-                        bPackage.cityName=value.get("text").getAsString();
-                        JedisUtil.lpush(TO_QUEUE,gson.toJson(bean));
-                    }
-                }
             }
+            return crawlCalendar(bean,packageIds);
         }
         else{
             logger.info(bean.productId+" failed to request "+STOCK_INFO_URL+" "+response.getStatusLine().getStatusCode());
             return false;
         }
-        return true;
     }
 
-    private String getPath(JsonArray content){
+    //获得路线
+    private String crawlPath(JsonArray content){
         StringBuilder builder=new StringBuilder();
         for(int i=0;i<content.size();i++){
             JsonObject contentItem=content.get(i).getAsJsonObject();
@@ -184,39 +219,28 @@ public class InfoCrawler extends Crawler{
         return builder.toString();
     }
 
-    private void saveData(Bean bean){
-        JedisUtil.lpush(TO_QUEUE,gson.toJson(bean));
-    }
 
     @Override
     public void crawl(String taskData){
         Bean bean=new Bean();
         List<String> pathList=new ArrayList<>();
         try{
-            if(!crawlIndexInfo(taskData,bean,pathList)){
-                saveFailureTask(taskData);
+            if(!crawlIndexInfo(taskData,bean,pathList)||!getStockInfo(bean,pathList)){
+                JedisUtil.lpush(FROM_QUEUE,taskData);
                 return;
             }
-        }catch(IOException e){
-            if(e instanceof SocketException || e instanceof InterruptedIOException){
-                logger.info("request "+taskData+" time out");
-                saveFailureTask(taskData);
+        }catch(Exception e){
+            e.printStackTrace();
+            if(e instanceof IOException){
+                JedisUtil.lpush(FROM_QUEUE,taskData);
             }
-        }
-        try{
-            if(!getStockInfo(bean,pathList)){
-                saveFailureTask(taskData);
-                return;
-            }
-            saveData(bean);
-        }catch(IOException e){
-            if(e instanceof SocketException || e instanceof InterruptedIOException){
-                saveFailureTask(taskData);
+            else{
+                Core.saveErrorMsg(taskData+"\n"+ExceptionUtil.getTotal(e));
             }
         }
     }
     public static void main(String[] args){
         InfoCrawler crawler=new InfoCrawler(null);
-        crawler.start();
+        crawler.crawl("2466970");
     }
 }

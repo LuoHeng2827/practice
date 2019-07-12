@@ -1,4 +1,4 @@
-package com.luoheng.example.tuniu;
+package com.luoheng.example._tuniu;
 
 import com.google.gson.*;
 import com.luoheng.example.lcrawler.Crawler;
@@ -22,55 +22,29 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 /**
  * 跟团游和自由行产品爬虫
  */
-public class ProductCrawler extends Crawler {
+public class ProductListCrawler extends Crawler {
     private static final String TARGET_URL="https://m.tuniu.com/travel/mapi/search/getSearchList";
-    private static final String TO_TOUR_QUEUE="list_tuniu_tour_product_id";
-    private static final String TO_PKG_QUEUE="list_tuniu_pkg_product_id";
-    public static final int TYPE_TOUR=0;
-    public static final int TYPE_PKG=1;
+    private static final String TO_TOUR_QUEUE="list_tuniu_product_id";
     private Queue<String> taskQueue;
-    private List<String> existData;
     private Gson gson;
-    private int type;
-    private Logger logger=LogManager.getLogger(ProductCrawler.class);
+    private Logger logger=LogManager.getLogger(ProductListCrawler.class);
 
-    public ProductCrawler(CrawlerFactory factory){
+    public ProductListCrawler(CrawlerFactory factory){
         super(factory);
-    }
-
-    public ProductCrawler(CrawlerFactory factory,int type) {
-        super(factory);
-        this.type=type;
         init();
     }
 
-    public ProductCrawler(CrawlerFactory factory,int type,String name) {
+
+    public ProductListCrawler(CrawlerFactory factory,String name) {
         super(factory,name);
-        this.type=type;
         init();
     }
 
     public void init() {
         gson=new Gson();
         taskQueue=buildTask();
-        existData=getExistData();
     }
 
-    private List<String> getExistData(){
-        List<String> productIdList=new ArrayList<>();
-        try{
-            Connection connection=DBPoolUtil.getConnection();
-            PreparedStatement statement=connection
-                    .prepareStatement("SELECT OTA_PROD_ID FROM TRAVEL_PRODUCT_INFO;");
-            ResultSet resultSet=statement.executeQuery();
-            while(resultSet.next()){
-                productIdList.add(resultSet.getString(1));
-            }
-        }catch(SQLException e){
-            e.printStackTrace();
-        }
-        return productIdList;
-    }
 
     private Queue<String> buildTask(){
         Queue<String> taskQueue=new ConcurrentLinkedQueue<>();
@@ -79,10 +53,7 @@ public class ProductCrawler extends Crawler {
         params.put("limit","20");
         params.put("paramType","1");
         params.put("keyword","云南");
-        if(type==TYPE_TOUR)
-            params.put("tabKey","tours");
-        else
-            params.put("tabKey","pkg");
+        params.put("tabKey","tours");
         params.put("pageNum","1");
         params.put("newSaleChannels","[]");
         headers.put("User-Agent","Chrome/74.0.3729.169 Mobile");
@@ -134,14 +105,7 @@ public class ProductCrawler extends Crawler {
                 JsonArray list=data.getAsJsonArray("list");
                 for(int i=0;i<list.size();i++){
                     String productId=list.get(i).getAsJsonObject().get("productId").getAsString();
-                    if(existData.contains(productId)){
-                        continue;
-                    }
-                    if(type==TYPE_TOUR){
-                        jedis.rpush(TO_TOUR_QUEUE,productId);
-                    }
-                    else
-                        jedis.rpush(TO_PKG_QUEUE,productId);
+                    jedis.rpush(TO_TOUR_QUEUE,productId);
                 }
             }
             else{
@@ -155,7 +119,7 @@ public class ProductCrawler extends Crawler {
     }
 
     public static void main(String[] args){
-        ProductCrawler crawler=new ProductCrawler(null,ProductCrawler.TYPE_TOUR);
+        ProductListCrawler crawler=new ProductListCrawler(null);
         crawler.start();
     }
 }

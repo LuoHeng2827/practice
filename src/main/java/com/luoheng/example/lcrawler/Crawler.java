@@ -64,6 +64,7 @@ public abstract class Crawler extends Thread{
         this.number=number;
     }
 
+    //获得任务
     public abstract String getTaskData();
 
     public abstract void crawl(String taskData);

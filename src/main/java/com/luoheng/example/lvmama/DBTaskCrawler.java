@@ -1,4 +1,4 @@
-package com.luoheng.example.mafengwo;
+package com.luoheng.example.lvmama;
 
 import com.google.gson.Gson;
 import com.luoheng.example.lcrawler.Crawler;
@@ -11,28 +11,31 @@ import org.apache.logging.log4j.Logger;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
-import java.sql.SQLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
 public class DBTaskCrawler extends Crawler{
-    public static final String FROM_QUEUE="list_mafengwo_db";
-    private Gson gson=new Gson();
+    public static final String FROM_QUEUE="lvmama_product_db";
     private Logger logger=LogManager.getLogger(DBTaskCrawler.class);
+    private Gson gson=new Gson();
     public DBTaskCrawler(CrawlerFactory factory){
         super(factory);
     }
 
-    public DBTaskCrawler(CrawlerFactory factory, String name){
-        super(factory, name);
+    public DBTaskCrawler(CrawlerFactory factory,String name){
+        super(factory,name);
     }
 
-    public DBTaskCrawler(CrawlerFactory factory, String name, long crawlInterval){
-        super(factory, name, crawlInterval);
+    public DBTaskCrawler(CrawlerFactory factory,String name,long crawlInterval){
+        super(factory,name,crawlInterval);
     }
 
+    @Override
+    public String getTaskData(){
+        return JedisUtil.rpop(FROM_QUEUE);
+    }
     private void saveData(String taskData){
         Bean bean=gson.fromJson(taskData,Bean.class);
         logger.info(bean.productLink);
@@ -41,7 +44,7 @@ public class DBTaskCrawler extends Crawler{
             Bean.Package bPackage=bean.bPackage;
             List<Bean.Price> priceList=bean.priceList;
             PreparedStatement preparedStatement=connection
-                    .prepareStatement("INSERT INTO MAFENGWO_TRAVEL_PRODUCT_INFO(" +
+                    .prepareStatement("INSERT INTO LVMAMA_TRAVEL_PRODUCT_INFO(" +
                             "`PROD_UNI_CODE`,`OTA_ID`,`PROD_TYPE`,`OTA_PROD_ID`,`PROD_NAME`," +
                             "`TA_NAME`,`PACKAGE_NAME`,`TRAVEL_PLAN`,`PROD_LINK`)" +
                             "VALUES(?,?,?,?,?,?,?,?,?);");
@@ -53,11 +56,11 @@ public class DBTaskCrawler extends Crawler{
             preparedStatement.setString(5,bean.productName);
             preparedStatement.setString(6,bean.taName);
             preparedStatement.setString(7,bPackage.name);
-            preparedStatement.setString(8, bPackage.path);
+            preparedStatement.setString(8,bPackage.path);
             preparedStatement.setString(9,bean.productLink);
             preparedStatement.execute();
             preparedStatement.close();
-            preparedStatement=connection.prepareStatement("INSERT INTO MAFENGWO_TRAVEL_PRODUCT_PRICE(" +
+            preparedStatement=connection.prepareStatement("INSERT INTO LVMAMA_TRAVEL_PRODUCT_PRICE(" +
                     "`PROD_UNI_CODE`,`DATE`,`CITY`,`PRICE`) VALUES(?,?,?,?);");
             for(Bean.Price bPrice:priceList){
                 preparedStatement.setString(1,uuid);
@@ -77,18 +80,15 @@ public class DBTaskCrawler extends Crawler{
             preparedStatement.close();
             logger.info(bean.productLink+"-insert "+res.length+"price data");
             connection.close();
-        }catch(SQLException e){
+        }catch(Exception e){
             saveFailureTask(taskData);
+            Core.saveErrorMsg(e.getMessage());
             e.printStackTrace();
         }
     }
     private void saveFailureTask(String taskData){
         logger.info(taskData+" push to queue");
         JedisUtil.lpush(FROM_QUEUE,taskData);
-    }
-    @Override
-    public String getTaskData(){
-        return JedisUtil.rpop(FROM_QUEUE);
     }
 
     @Override

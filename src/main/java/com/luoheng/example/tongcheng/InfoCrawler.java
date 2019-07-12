@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 
 public class InfoCrawler extends Crawler{
+    //价格日历链接
     private static final String CALENDAR_URL="https://gny.ly.com/fetch/index/detail/getCalendarList";
     public static final String FROM_QUEUE="tongcheng_product_href";
     public static final String TO_QUEUE="tongcheng_product_db";
@@ -49,6 +50,7 @@ public class InfoCrawler extends Crawler{
         return JedisUtil.rpop(FROM_QUEUE);
     }
 
+    //爬取产品的基本信息
     private boolean crawlInfo(String productUrl,Bean bean) throws Exception{
         Map<String,String> headers=new HashMap<>();
         headers.put("Cookie",Core.cookie);
@@ -80,6 +82,7 @@ public class InfoCrawler extends Crawler{
         }
     }
 
+    //爬取产品的路线信息
     private void crawlPath(Element div,Bean bean){
         Elements trs=div.getElementsByTag("tbody").get(0).getElementsByTag("tr");
         StringBuilder builder=new StringBuilder();
@@ -98,6 +101,7 @@ public class InfoCrawler extends Crawler{
         bean.bPackage.path=builder.toString();
     }
 
+    //爬取网站的价格日历
     private boolean crawlCalendar(String cityName,String cityCode,Bean bean) throws Exception{
         Map<String,String> headers=new HashMap<>();
         List<NameValuePair> formList=new ArrayList<>();

@@ -4,7 +4,8 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.luoheng.example.lcrawler.Crawler;
 import com.luoheng.example.lcrawler.CrawlerFactory;
-import com.luoheng.example.util.ThreadUtil;
+import com.luoheng.example.util.ExceptionUtil;
+import com.luoheng.example.util.PropertiesUtil;
 import com.luoheng.example.util.http.HttpClientUtil;
 import com.luoheng.example.util.redis.JedisUtil;
 import org.apache.http.HttpResponse;
@@ -22,19 +23,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+
 public class PreparedCrawler extends Crawler{
-    private static final long MAX_FREE_TIME=9000;
-    private static final long FREE_TIME_INTERVAL=3000;
-    private static final String TARGET_URL="http://www.mafengwo.cn/sales/ajax_2017.php";
-    private static final String HOST_URL="http://www.mafengwo.cn";
+    //获得产品列表的链接
+    private static final String PRODUCT_LIST_URL="http://www.mafengwo.cn/sales/ajax_2017.php";
     public static final String TO_QUEUE="list_mafengwo_product_id";
-    public static final String TASK_QUEUE="list_mafengwo_product_id_task";
+    public static final String FROM_QUEUE="list_mafengwo_product_id_task";
+    //目的地编号
     private static String[] destinationCityCodes={"M10186","M10807","M10482","M10121","M12711","M10487"};
     public static boolean shouldOver=false;
     private Logger logger=LogManager.getLogger(PreparedCrawler.class);
-    private Gson gson;
-    private List<String> repeatFilter=new ArrayList<>();
-    private long freeTime;
+    private Gson gson=new Gson();
     public PreparedCrawler(CrawlerFactory factory){
         super(factory);
         init();
@@ -51,10 +50,10 @@ public class PreparedCrawler extends Crawler{
     }
 
     public void init(){
-        gson=new Gson();
         buildTaskData();
     }
 
+    //构建请求产品列表的链接及参数和请求头
     private void buildTaskData(){
         Map<String,String> params=new HashMap<>();
         Map<String,String> headers=new HashMap<>();
@@ -69,7 +68,7 @@ public class PreparedCrawler extends Crawler{
             params.put("to",destinationCityCodes[i]);
             params.put("page","1");
             try{
-                HttpResponse response=HttpClientUtil.doGet(TARGET_URL,params,headers);
+                HttpResponse response=HttpClientUtil.doGet(PRODUCT_LIST_URL,params,headers);
                 if(response.getStatusLine().getStatusCode()==200){
                     String responseStr=EntityUtils.toString(response.getEntity());
                     JsonObject jsonObject=gson.fromJson(responseStr,JsonObject.class);
@@ -79,14 +78,14 @@ public class PreparedCrawler extends Crawler{
                     for(int j=0;j<totalPage;j++){
                         JsonObject taskData=new JsonObject();
                         params.put("page",j+1+"");
-                        taskData.addProperty("url",TARGET_URL);
+                        taskData.addProperty("url",PRODUCT_LIST_URL);
                         taskData.addProperty("params",gson.toJson(params));
                         taskData.addProperty("headers",gson.toJson(headers));
-                        JedisUtil.lpush(TASK_QUEUE,gson.toJson(taskData));
+                        JedisUtil.lpush(FROM_QUEUE,gson.toJson(taskData));
                     }
                 }
                 else{
-                    logger.info("error!failed to request url "+TARGET_URL);
+                    logger.info("error!failed to request url "+PRODUCT_LIST_URL);
                 }
             }catch(IOException e){
                 e.printStackTrace();
@@ -94,13 +93,15 @@ public class PreparedCrawler extends Crawler{
         }
     }
 
+    //获得产品的具体链接
     @SuppressWarnings("unchecked")
-    private boolean crawProductUrl(String taskData) throws IOException{
+    private boolean crawProductUrl(String taskData) throws Exception{
         JsonObject taskDataObject=gson.fromJson(taskData,JsonObject.class);
         String url=taskDataObject.get("url").getAsString();
         Map<String,String> params=gson.fromJson(taskDataObject.get("params").getAsString(),HashMap.class);
         Map<String,String> headers=gson.fromJson(taskDataObject.get("headers").getAsString(),HashMap.class);
-        HttpResponse response=HttpClientUtil.doGet(url,params,headers,true,0);
+        HttpResponse response=HttpClientUtil.doGet(url,params,headers,
+                Boolean.valueOf(PropertiesUtil.getValue("proxy.use")),0);
         if(response.getStatusLine().getStatusCode()==200){
             String responseStr=EntityUtils.toString(response.getEntity());
             JsonObject jsonObject=gson.fromJson(responseStr,JsonObject.class);
@@ -112,38 +113,23 @@ public class PreparedCrawler extends Crawler{
             for(Element element:elements){
                 String href=element.attr("href");
                 String productId=href.substring(href.lastIndexOf("/")+1,href.lastIndexOf("."));
-                if(!repeatFilter.contains(productId)){
-                    repeatFilter.add(productId);
-                    JedisUtil.lpush(TO_QUEUE,productId);
-                }
+                JedisUtil.lpush(TO_QUEUE,productId);
             }
         }
         else{
-            logger.info("failed to request url "+url+":"+response.getStatusLine().getStatusCode());
+            logger.info("failed to request "+url+":"+response.getStatusLine().getStatusCode());
             return false;
         }
         return true;
     }
 
-    private void saveFailureTask(String taskData){
-        logger.info(taskData+" push to queue");
-        JedisUtil.lpush(TASK_QUEUE,taskData);
-    }
-
-
     @Override
     public String getTaskData(){
-        String taskData=JedisUtil.rpop(TASK_QUEUE);
-        while(taskData==null){
-            freeTime+=FREE_TIME_INTERVAL;
-            ThreadUtil.waitMillis(FREE_TIME_INTERVAL);
-            if(freeTime>=MAX_FREE_TIME){
-                shouldOver=true;
-                break;
-            }
-            taskData=JedisUtil.rpop(TASK_QUEUE);
+        String taskData=JedisUtil.rpop(FROM_QUEUE);
+        if(taskData==null){
+            shouldOver=true;
+            overThis();
         }
-        freeTime=0;
         return taskData;
     }
 
@@ -151,12 +137,16 @@ public class PreparedCrawler extends Crawler{
     public void crawl(String taskData){
         try{
             if(!crawProductUrl(taskData)){
-                saveFailureTask(taskData);
-                return;
+                JedisUtil.lpush(FROM_QUEUE,taskData);
             }
-        }catch(IOException e){
-            saveFailureTask(taskData);
+        }catch(Exception e){
             e.printStackTrace();
+            if(e instanceof IOException){
+                JedisUtil.lpush(FROM_QUEUE,taskData);
+            }
+            else{
+                Core.saveErrorMsg(taskData+"\n"+ExceptionUtil.getTotal(e));
+            }
         }
     }
 
