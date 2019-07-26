@@ -7,6 +7,8 @@ import com.google.gson.JsonObject;
 import com.luoheng.example.lcrawler.Crawler;
 import com.luoheng.example.lcrawler.CrawlerFactory;
 import com.luoheng.example.util.ExceptionUtil;
+import com.luoheng.example.util.PropertiesUtil;
+import com.luoheng.example.util.ThreadUtil;
 import com.luoheng.example.util.http.HttpClientUtil;
 import com.luoheng.example.util.redis.JedisUtil;
 import org.apache.http.HttpResponse;
@@ -16,14 +18,12 @@ import org.apache.logging.log4j.Logger;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
 
 import java.io.IOException;
 import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -57,7 +57,7 @@ public class InfoCrawler extends Crawler{
 
     //从产品链接获得产品id
     private String getProductIdByUrl(String productUrl){
-        Pattern pattern=Pattern.compile(".*pid=(\\d+)&*.*");
+        Pattern pattern=Pattern.compile(".*p*id=(\\d+)&*.*");
         Matcher matcher=pattern.matcher(productUrl);
         if(matcher.matches())
             return matcher.group(1);
@@ -74,12 +74,13 @@ public class InfoCrawler extends Crawler{
         params.put("month",format.format(new Date()));
         params.put("caller","detail");
         params.put("_",new Date().getTime()+"");
-        headers.put("cookie","QN48=tc_2ce8863580e7e9c9_16b1c9cb6ca_e124; QN300=ctrip.com; QN1=eIQjm1z05ImAzhUDCM1pAg==");
+        headers.put("cookies","QN48=tc_2ce8863580e7e9c9_16b1c9cb6ca_e124; QN300=ctrip.com; QN1=eIQjm1z05ImAzhUDCM1pAg==");
         headers.put("Referer",productUrl);
         headers.put("User-Agent","Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36");
         headers.put("X-Requested-With","XMLHttpRequest");
         URL url=new URL(productUrl);
-        HttpResponse response=HttpClientUtil.doGet(String.format(CALENDAR_URL,url.getHost()),params,headers);
+        HttpResponse response=HttpClientUtil.doGet(String.format(CALENDAR_URL,url.getHost()),params,headers,
+                Boolean.valueOf(PropertiesUtil.getValue("proxy.use")),number);
         int code=response.getStatusLine().getStatusCode();
         if(code==200){
             String responseStr=EntityUtils.toString(response.getEntity());
@@ -91,7 +92,11 @@ public class InfoCrawler extends Crawler{
             for(int i=0;i<day;i++){
                 JsonObject object=team.get(i).getAsJsonObject();
                 String date=object.get("date").getAsString();
-                float price=object.getAsJsonObject("prices").get("adultPrice").getAsFloat();
+                float price;
+                if(object.getAsJsonObject("prices").get("taocan_price") instanceof JsonNull)
+                    price=object.getAsJsonObject("prices").get("adultPrice").getAsFloat();
+                else
+                    price=object.getAsJsonObject("prices").get("taocan_price").getAsFloat();
                 Bean.Price bPrice=bean.newPrice(date,price);
                 bean.priceList.add(bPrice);
             }
@@ -110,12 +115,14 @@ public class InfoCrawler extends Crawler{
         params.put("pId",getProductIdByUrl(productUrl));
         params.put("isVer","false");
         params.put("oid","");
-        HttpResponse response=HttpClientUtil.doGet(PATH_URL,params,null);
+        HttpResponse response=HttpClientUtil.doGet(PATH_URL,params,null,
+                Boolean.valueOf(PropertiesUtil.getValue("proxy.use")),number);
         int code=response.getStatusLine().getStatusCode();
         if(code==200){
             String responseStr=EntityUtils.toString(response.getEntity());
             JsonObject jsonObject=gson.fromJson(responseStr,JsonObject.class);
-            JsonArray dailySchedules=jsonObject.getAsJsonObject("data").getAsJsonArray("dailySchedules");
+            JsonArray dailySchedules=jsonObject.getAsJsonObject("data")
+                    .getAsJsonArray("dailySchedules");
             StringBuilder builder=new StringBuilder();
             for(int i=0;i<dailySchedules.size();i++){
                 JsonObject scheduleItem=dailySchedules.get(i).getAsJsonObject();
@@ -138,8 +145,9 @@ public class InfoCrawler extends Crawler{
     private boolean crawlInfo(String productUrl,Bean bean) throws Exception{
         bean.bPackage.name="跟团游";
         Map<String,String> headers=new HashMap<>();
-        headers.put("cookie","QN48=tc_2ce8863580e7e9c9_16b1c9cb6ca_e124; QN300=ctrip.com; QN1=eIQjm1z05ImAzhUDCM1pAg==");
-        HttpResponse response=HttpClientUtil.doGet(productUrl,null,null);
+        headers.put("cookies","QN48=tc_2ce8863580e7e9c9_16b1c9cb6ca_e124; QN300=ctrip.com; QN1=eIQjm1z05ImAzhUDCM1pAg==");
+        HttpResponse response=HttpClientUtil.doGet(productUrl,null,null,
+                Boolean.valueOf(PropertiesUtil.getValue("proxy.use")),number);
         int code=response.getStatusLine().getStatusCode();
         if(code==200){
             String responseStr=EntityUtils.toString(response.getEntity());
@@ -148,8 +156,10 @@ public class InfoCrawler extends Crawler{
             Matcher matcher=pattern.matcher(document.getElementsByTag("script").get(0).data());
             if(matcher.matches()){
                 String url="https:"+matcher.group(1);
-
-                response=HttpClientUtil.doGet(url,null,headers);
+                if(!productUrl.contains("dujia.qunar.com"))
+                    url=productUrl;
+                response=HttpClientUtil.doGet(url,null,headers,
+                        Boolean.valueOf(PropertiesUtil.getValue("proxy.use")),number);
                 code=response.getStatusLine().getStatusCode();
                 if(code==200){
                     responseStr=EntityUtils.toString(response.getEntity());
@@ -207,6 +217,7 @@ public class InfoCrawler extends Crawler{
                 Core.saveErrorMsg(taskData+"\n"+ExceptionUtil.getTotal(e));
             }
         }
+        ThreadUtil.waitSecond(1);
     }
 
     public static void main(String[] args){

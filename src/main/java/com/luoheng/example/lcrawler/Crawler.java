@@ -21,8 +21,6 @@ public abstract class Crawler extends Thread{
      * 爬虫结束标识符
      */
     private boolean over;
-
-    private boolean stop;
     /**
      * 爬取间隔
      */
@@ -73,14 +71,6 @@ public abstract class Crawler extends Thread{
         return over;
     }
 
-    public boolean isStop(){
-        return stop;
-    }
-
-    public void stopThis(){
-        stop=true;
-    }
-
     public void overThis() {
         over=true;
     }
@@ -118,16 +108,14 @@ public abstract class Crawler extends Thread{
                 }
                 continue;
             }
+            if(isInterrupted()){
+                overThis();
+            }
             long startTime=System.currentTimeMillis();
             currentTask=getTaskData();
-            if(currentTask==null){
-                if(isStop()){
-                    overThis();
-                    continue;
-                }
-            }
-            else
-                crawl(currentTask);
+            if(currentTask==null)
+                continue;
+            crawl(currentTask);
             long endTime=System.currentTimeMillis();
             if(endTime-startTime<crawlInterval)
                 ThreadUtil.waitMillis(crawlInterval-endTime+startTime);

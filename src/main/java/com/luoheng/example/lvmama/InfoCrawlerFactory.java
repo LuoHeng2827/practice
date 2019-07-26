@@ -17,8 +17,7 @@ public class InfoCrawlerFactory extends BasicCrawlerFactory<InfoCrawler>{
 
     @Override
     public boolean shouldOver(){
-        long len=JedisUtil.llen(DBTaskCrawler.FROM_QUEUE);
-        return len<=0;
+        return JedisUtil.llen(DBTaskCrawler.FROM_QUEUE)<=0;
     }
 
     @Override

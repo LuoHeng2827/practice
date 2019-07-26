@@ -6,7 +6,10 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.luoheng.example.lcrawler.Crawler;
 import com.luoheng.example.lcrawler.CrawlerFactory;
+import com.luoheng.example.util.BloomFilter.BFUtil;
 import com.luoheng.example.util.ExceptionUtil;
+import com.luoheng.example.util.PropertiesUtil;
+import com.luoheng.example.util.ThreadUtil;
 import com.luoheng.example.util.http.HttpClientUtil;
 import com.luoheng.example.util.redis.JedisUtil;
 import org.apache.http.HttpResponse;
@@ -20,9 +23,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 获得产品的链接
- */
+//爬取产品列表的产品链接
 public class ProductListCrawler extends Crawler{
     public static boolean shouldOver=false;
     public static final String FROM_QUEUE="qunaer_task";
@@ -103,7 +104,8 @@ public class ProductListCrawler extends Crawler{
     private List<String> getCityNameList(){
         List<String> cityNameList=new ArrayList<>();
         try{
-            HttpResponse response=HttpClientUtil.doGet(CITY_LIST_URL,null,null);
+            HttpResponse response=HttpClientUtil.doGet(CITY_LIST_URL,null,null,
+                    Boolean.valueOf(PropertiesUtil.getValue("proxy.use")),number);
             int code=response.getStatusLine().getStatusCode();
             if(code==200){
                 String responseStr=EntityUtils.toString(response.getEntity());
@@ -143,7 +145,8 @@ public class ProductListCrawler extends Crawler{
     public void crawl(String taskData){
         try{
             Map<String,String> headers=new HashMap<>();
-            HttpResponse response=HttpClientUtil.doGet(taskData,null,headers);
+            HttpResponse response=HttpClientUtil.doGet(taskData,null,headers,
+                    Boolean.valueOf(PropertiesUtil.getValue("proxy.use")),number);
             int code=response.getStatusLine().getStatusCode();
             if(code==200){
                 String responseStr=EntityUtils.toString(response.getEntity());
@@ -152,7 +155,15 @@ public class ProductListCrawler extends Crawler{
                 int productNum=list.get("numFound").getAsInt();
                 JsonArray results=list.getAsJsonArray("results");
                 for(int i=0;i<results.size();i++){
-                    JedisUtil.lpush(TO_QUEUE,"https:"+results.get(i).getAsJsonObject().get("url").getAsString());
+                    String href="https:"+results.get(i).getAsJsonObject().get("url").getAsString();
+                    if(Core.isUpdatePrice){
+                        JedisUtil.lpush(TO_QUEUE,href);
+                    }
+                    else{
+                        if(!BFUtil.isExist(href)){
+                            JedisUtil.lpush(TO_QUEUE,href);
+                        }
+                    }
                 }
                 for(int i=60;i<productNum;i+=60){
                     JedisUtil.lpush(FROM_QUEUE,taskData.replace("0,60",""+i+",60"));
@@ -170,6 +181,7 @@ public class ProductListCrawler extends Crawler{
                 Core.saveErrorMsg(ExceptionUtil.getTotal(e));
             }
         }
+        ThreadUtil.waitSecond(2);
     }
     public static void main(String[] args){
         ProductListCrawler crawler=new ProductListCrawler(null);

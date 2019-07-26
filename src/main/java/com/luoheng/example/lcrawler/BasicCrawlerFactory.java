@@ -42,7 +42,7 @@ public abstract class BasicCrawlerFactory<T extends Crawler> implements CrawlerF
         logger.info(this.name+" is stopping...");
         Vector<T> crawlerVector=(Vector<T>)controller.getFactoryVector(this);
         for(T crawler:crawlerVector){
-            crawler.stopThis();
+            crawler.interrupt();
         }
     }
 
@@ -106,4 +106,14 @@ public abstract class BasicCrawlerFactory<T extends Crawler> implements CrawlerF
 
     public abstract boolean shouldOver();
 
+    @Override
+    public void printStatus(){
+        System.out.println("name: "+name);
+        int aliveNumber=0;
+        for(int i=0;i<getController().getFactoryVector(this).size();i++){
+            if(getController().getFactoryVector(this).get(i).isAlive())
+                aliveNumber++;
+        }
+        System.out.println("alive crawler's number is "+aliveNumber);
+    }
 }

@@ -1,13 +1,23 @@
-package com.luoheng.example._tuniu;
+package com.luoheng.example.tuniu;
 
 import com.luoheng.example.lcrawler.BasicCrawlerFactory;
 import com.luoheng.example.lcrawler.CrawlerController;
+import com.luoheng.example.util.redis.JedisUtil;
 
 import java.util.Vector;
 
 public class DBTaskCrawlerFactory extends BasicCrawlerFactory<DBTaskCrawler>{
     public DBTaskCrawlerFactory(CrawlerController controller){
         super(controller);
+    }
+
+    public DBTaskCrawlerFactory(CrawlerController controller,String name){
+        super(controller,name);
+    }
+
+    @Override
+    public boolean shouldOver(){
+        return JedisUtil.llen(InfoCrawler.FROM_QUEUE)<=0;
     }
 
     @Override
@@ -17,16 +27,12 @@ public class DBTaskCrawlerFactory extends BasicCrawlerFactory<DBTaskCrawler>{
 
     @Override
     public Vector<DBTaskCrawler> newVector(int count){
-        Vector<DBTaskCrawler> dbTaskCrawlerVector=new Vector<>();
+        Vector<DBTaskCrawler> crawlerVector=new Vector<>();
         for(int i=0;i<count;i++){
-            DBTaskCrawler crawler=new DBTaskCrawler(this);
-            dbTaskCrawlerVector.add(crawler);
+            DBTaskCrawler crawler=newInstance();
+            crawler.setNumber(i);
+            crawlerVector.add(crawler);
         }
-        return dbTaskCrawlerVector;
-    }
-
-    @Override
-    public boolean shouldOver(){
-        return false;
+        return crawlerVector;
     }
 }

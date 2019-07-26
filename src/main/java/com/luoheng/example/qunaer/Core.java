@@ -8,14 +8,16 @@ import java.util.List;
 
 public class Core{
     public static final String ERROR_QUEUE="qunaer_error_msg";
+    public static boolean isUpdatePrice=false;
     public static void main(String[] args){
         CrawlerController controller=new CrawlerController();
         ProductListCrawlerFactory productListCrawlerFactory=new ProductListCrawlerFactory(controller);
         InfoCrawlerFactory infoCrawlerFactory=new InfoCrawlerFactory(controller);
         DBTaskCrawlerFactory dbTaskCrawlerFactory=new DBTaskCrawlerFactory(controller);
-        controller.add(productListCrawlerFactory,1)
-                .add(infoCrawlerFactory,1)
-                .add(dbTaskCrawlerFactory,1);
+        controller.add(productListCrawlerFactory,Integer.parseInt(args[0]))
+                .add(infoCrawlerFactory,Integer.parseInt(args[1]))
+                .add(dbTaskCrawlerFactory,Integer.parseInt(args[2]));
+        isUpdatePrice=Boolean.parseBoolean(args[3]);
         controller.start();
         while(!controller.isComplete()){
             ThreadUtil.waitSecond(3);

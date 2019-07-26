@@ -3,6 +3,8 @@ package com.luoheng.example.lvmama;
 import com.google.gson.Gson;
 import com.luoheng.example.lcrawler.Crawler;
 import com.luoheng.example.lcrawler.CrawlerFactory;
+import com.luoheng.example.util.BloomFilter.BFUtil;
+import com.luoheng.example.util.CodeUtil;
 import com.luoheng.example.util.DBPoolUtil;
 import com.luoheng.example.util.ThreadUtil;
 import com.luoheng.example.util.redis.JedisUtil;
@@ -11,11 +13,13 @@ import org.apache.logging.log4j.Logger;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
+//将产品的信息存储到数据库
 public class DBTaskCrawler extends Crawler{
     public static final String FROM_QUEUE="lvmama_product_db";
     private Logger logger=LogManager.getLogger(DBTaskCrawler.class);
@@ -43,23 +47,41 @@ public class DBTaskCrawler extends Crawler{
             Connection connection=DBPoolUtil.getConnection();
             Bean.Package bPackage=bean.bPackage;
             List<Bean.Price> priceList=bean.priceList;
-            PreparedStatement preparedStatement=connection
-                    .prepareStatement("INSERT INTO LVMAMA_TRAVEL_PRODUCT_INFO(" +
-                            "`PROD_UNI_CODE`,`OTA_ID`,`PROD_TYPE`,`OTA_PROD_ID`,`PROD_NAME`," +
-                            "`TA_NAME`,`PACKAGE_NAME`,`TRAVEL_PLAN`,`PROD_LINK`)" +
-                            "VALUES(?,?,?,?,?,?,?,?,?);");
             String uuid=ThreadUtil.getUUID();
-            preparedStatement.setString(1,uuid);
-            preparedStatement.setInt(2,6);
-            preparedStatement.setString(3,"1");
-            preparedStatement.setString(4,bean.productId);
-            preparedStatement.setString(5,bean.productName);
-            preparedStatement.setString(6,bean.taName);
-            preparedStatement.setString(7,bPackage.name);
-            preparedStatement.setString(8,bPackage.path);
-            preparedStatement.setString(9,bean.productLink);
-            preparedStatement.execute();
-            preparedStatement.close();
+            PreparedStatement preparedStatement;
+            if(!BFUtil.isExist(bean.productLink)){
+                preparedStatement=connection
+                        .prepareStatement("INSERT INTO LVMAMA_TRAVEL_PRODUCT_INFO(" +
+                                "`PROD_UNI_CODE`,`OTA_ID`,`PROD_TYPE`,`OTA_PROD_ID`,`PROD_NAME`," +
+                                "`TA_NAME`,`PACKAGE_NAME`,`TRAVEL_PLAN`,`PROD_LINK`)" +
+                                "VALUES(?,?,?,?,?,?,?,?,?);");
+                uuid=ThreadUtil.getUUID();
+                preparedStatement.setString(1,uuid);
+                preparedStatement.setInt(2,6);
+                preparedStatement.setString(3,"1");
+                preparedStatement.setString(4,bean.productId);
+                preparedStatement.setString(5,bean.productName);
+                preparedStatement.setString(6,bean.taName);
+                preparedStatement.setString(7,bPackage.name);
+                preparedStatement.setString(8,bPackage.path);
+                preparedStatement.setString(9,CodeUtil.unicodeToChinese(bean.productLink));
+                preparedStatement.execute();
+                preparedStatement.close();
+                BFUtil.add(bean.productLink);
+            }
+            else{
+                preparedStatement=connection.prepareStatement("SELECT PROD_UNI_CODE FROM " +
+                        " LVMAMA_TRAVEL_PRODUCT_INFO WHERE PROD_LINK=?");
+                preparedStatement.setString(1,bean.productLink);
+                ResultSet resultSet=preparedStatement.executeQuery();
+                if(resultSet.next()){
+                    uuid=resultSet.getString(1);
+                }
+                else{
+                    Core.saveErrorMsg("uuid not exist");
+                    System.exit(-1);
+                }
+            }
             preparedStatement=connection.prepareStatement("INSERT INTO LVMAMA_TRAVEL_PRODUCT_PRICE(" +
                     "`PROD_UNI_CODE`,`DATE`,`CITY`,`PRICE`) VALUES(?,?,?,?);");
             for(Bean.Price bPrice:priceList){

@@ -3,11 +3,14 @@ package com.luoheng.example.tongcheng;
 import com.google.gson.Gson;
 import com.luoheng.example.lcrawler.Crawler;
 import com.luoheng.example.lcrawler.CrawlerFactory;
+import com.luoheng.example.util.BloomFilter.BFUtil;
+import com.luoheng.example.util.BloomFilter.BfConfiguration;
 import com.luoheng.example.util.ExceptionUtil;
+import com.luoheng.example.util.PropertiesUtil;
+import com.luoheng.example.util.ThreadUtil;
 import com.luoheng.example.util.http.HttpClientUtil;
 import com.luoheng.example.util.redis.JedisUtil;
 import org.apache.http.HttpResponse;
-import org.apache.http.cookie.Cookie;
 import org.apache.http.util.EntityUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -18,15 +21,18 @@ import org.jsoup.select.Elements;
 
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
+//爬取产品列表的产品链接
 public class ProductListCrawler extends Crawler{
     static boolean shouldOver=false;
     private static final String HOST_URL="https://gny.ly.com";
     public static final String FROM_QUEUE="tongcheng_product_task";
     public static final String TO_QUEUE="tongcheng_product_href";
+
     //产品列表链接
+    /*private static final String[] taskUrls={"https://m.ly.com/guoneiyou/list?src=%E5%8C%97%E4%BA%AC&dest=%E4%BA%91%E5%8D%97&prop=1",
+            "https://m.ly.com/guoneiyou/list?src=%E5%8C%97%E4%BA%AC&dest=%E4%BA%91%E5%8D%97&prop=5"};*/
     private static final String[] taskUrls={"https://gny.ly.com/list?src=北京&dest=云南&prop=1",
             "https://gny.ly.com/list?src=北京&dest=云南&prop=5"};
     private Gson gson=new Gson();
@@ -46,36 +52,24 @@ public class ProductListCrawler extends Crawler{
         init();
     }
 
-    //获得访问需要的Cookie
-    private void crawlCookie(){
-        Map<String,String> headers=new HashMap<>();
-        headers.put("Cookie","dj-meta=%257B%2522ttf%2522%3A%2522100000001001110101101000101111000011010101110000101%257C10001010100110010010001%2522%2C%2522tz%2522%3A-480%2C%2522au%2522%3A%252248000_2_1_0_2_explicit_speakers%2522%2C%2522gp%2522%3A%2522Google%2520Inc.%40ANGLE%2520(NVIDIA%2520GeForce%2520GT%2520705%2520Direct3D11%2520vs_5_0%2520ps_5_0)%2522%2C%2522cv%2522%3A%252275ef4ff7dba805b5200bfb170dd6ceaed666c140%2522%2C%2522pls%2522%3A%2522Chrome%2520PDF%2520PluginChrome%2520PDF%2520ViewerNative%2520Client%2522%2C%2522hd%2522%3A%2522zh-CN_zh_4%2522%2C%2522sc%2522%3A%2522900_1600_24_1%2522%2C%2522ua%2522%3A%2522Mozilla%2F5.0%2520(Macintosh%3B%2520Intel%2520Mac%2520OS%2520X%252010_9_3)%2520AppleWebKit%2F537.75.14%2520(KHTML%2C%2520like%2520Gecko)%2520Version%2F7.0.3%2520Safari%2F7046A194A%2522%2C%2522ft%2522%3A%2522a0d3a5ae529422a5960d9975b42f14e673c6a992%2522%2C%2522lg%2522%3A%2522b0b257f74eb224153921aa5e43565375f0cebd8c%2522%257D");
-        try{
-            List<Cookie> cookieList=HttpClientUtil.getDoGetCookie(taskUrls[0],null,headers);
-            for(Cookie cookie:cookieList){
-                if(cookie.getName().equals("dj-po")){
-                    Core.cookie=cookie.getName()+"="+cookie.getValue();
-                }
-            }
-        }catch(IOException e){
-            logger.info("failed to crawl cookie");
-            e.printStackTrace();
-            System.exit(-1);
-        }
-    }
-
     private void init(){
-        crawlCookie();
         buildTask();
     }
 
-    //遍历城市列表，构建任务
-    private void buildTask(){
+    /**
+     * 遍历城市列表，构建任务
+     */
+    public void buildTask(){
         try{
             for(String taskUrl:taskUrls){
                 Map<String,String> headers=new HashMap<>();
-                headers.put("cookie",Core.cookie);
-                HttpResponse response=HttpClientUtil.doGet(taskUrl,null,headers);
+                headers.put("cookie",Core.cookies[0]);
+                headers.put("Accept","*/*");
+                headers.put("Host","gny.ly.com");
+                headers.put("Connection","keep-alive");
+                headers.put("User-Agent",Core.randomUA(1,10));
+                HttpResponse response=HttpClientUtil.doGet(taskUrl,null,headers,
+                        Boolean.valueOf(PropertiesUtil.getValue("proxy.use")),29);
                 int code=response.getStatusLine().getStatusCode();
                 if(code==200){
                     String responseStr=EntityUtils.toString(response.getEntity());
@@ -87,17 +81,19 @@ public class ProductListCrawler extends Crawler{
                         Elements as=cityBox.getElementsByTag("a");
                         for(Element a:as){
                             for(int i=1;i<=maxPage;i++){
+                                //logger.info(a.attr("href"));
                                 JedisUtil.lpush(FROM_QUEUE,HOST_URL+a.attr("href")+"&start="+i);
                             }
                         }
                     }
                 }
                 else{
-                    logger.error("failed to build tasks");
+                    logger.error("failed to build tasks,code is "+code);
                     System.exit(-1);
                 }
             }
         }catch(IOException e){
+            e.printStackTrace();
             logger.error("failed to build tasks");
             System.exit(-1);
         }
@@ -116,8 +112,10 @@ public class ProductListCrawler extends Crawler{
     public void crawl(String taskData){
         try{
             Map<String,String> headers=new HashMap<>();
-            headers.put("cookie",Core.cookie);
-            HttpResponse response=HttpClientUtil.doGet(taskData,null,headers);
+            headers.put("cookie",Core.cookies[0]);
+            headers.put("User-Agent",Core.randomUA(1,10));
+            HttpResponse response=HttpClientUtil.doGet(taskData,null,headers,
+                    Boolean.valueOf(PropertiesUtil.getValue("proxy.use")),16);
             int code=response.getStatusLine().getStatusCode();
             if(code==200){
                 String responseStr=EntityUtils.toString(response.getEntity());
@@ -126,7 +124,15 @@ public class ProductListCrawler extends Crawler{
                     return;
                 Elements as=document.getElementById("line-lsit").getElementsByTag("a");
                 for(Element a:as){
-                    JedisUtil.lpush(TO_QUEUE,HOST_URL+a.attr("href"));
+                    String href=HOST_URL+a.attr("href");
+                    if(!Core.isUpdatePrice){
+                        if(BFUtil.isExist(href))
+                            continue;
+                        JedisUtil.lpush(TO_QUEUE,href);
+                    }
+                    else{
+                        JedisUtil.lpush(TO_QUEUE,href);
+                    }
                 }
             }
             else{
@@ -142,8 +148,9 @@ public class ProductListCrawler extends Crawler{
                 Core.saveErrorMsg(taskData+"\n"+ExceptionUtil.getTotal(e));
             }
         }
+        ThreadUtil.waitMillis(200);
     }
-    public static void main(String[] args){
+    public static void main(String[] args) throws Exception{
         ProductListCrawler crawler=new ProductListCrawler(null);
         crawler.start();
     }

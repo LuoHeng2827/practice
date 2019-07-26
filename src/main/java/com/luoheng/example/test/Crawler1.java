@@ -2,6 +2,7 @@ package com.luoheng.example.test;
 
 import com.luoheng.example.lcrawler.Crawler;
 import com.luoheng.example.lcrawler.CrawlerFactory;
+import com.luoheng.example.util.ThreadUtil;
 import com.luoheng.example.util.redis.JedisUtil;
 import redis.clients.jedis.Jedis;
 
@@ -27,8 +28,10 @@ public class Crawler1 extends Crawler{
 
     @Override
     public void crawl(String taskData){
-        Jedis jedis=JedisUtil.getResource();
-        jedis.lpush(TO_QUEUE,taskData);
+        ThreadUtil.waitSecond(5);
+        if(number==3){
+            throw new RuntimeException("xxx");
+        }
     }
 
 }

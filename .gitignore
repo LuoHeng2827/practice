@@ -7,8 +7,6 @@
 *.iml
 out
 gen
-/chromedriver.exe
-/fiddler-feizhu-info.log
 /chromedriver/
 /target/
 /src/main/resources/config.properties

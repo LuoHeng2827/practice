@@ -9,9 +9,9 @@ public class BfConfiguration {
     private String host;
     private int port;
     private String password;
-    private int hashNumber;
-    private double falsePositiveRate;
-    private int estDataNumber;
+    private int hashCount;
+    private double negativeRate;
+    private int dataSize;
     private int bitLength;
     /**
      * @param host redis主机ip
@@ -22,7 +22,7 @@ public class BfConfiguration {
         this.host = host;
         this.port = port;
         this.bitLength = bitLength;
-        this.hashNumber = 7;
+        this.hashCount= 7;
         if (bitLength < 0){
             throw  new RuntimeException("用于去重的位信息长度不能为0");
         }
@@ -30,35 +30,35 @@ public class BfConfiguration {
     /**
      * @param host redis主机ip
      * @param port redis端口
-     * @param hashNumber 需要使用的hash算法的数量,最多15个,最少1个
-     * @param falsePositiveRate 误判率
-     * @param estDataNumber 预估要判重的数量个数
-     * 其中hashNumber,falsePositiveRate,estDataNumber会影响计算出的需要bit的个数（长度）
+     * @param hashCount 需要使用的hash算法的数量,最多15个,最少1个
+     * @param negativeRate 误判率
+     * @param dataSize 预估要判重的数量个数
+     * 其中hashNumber,negativeRate,estDataNumber会影响计算出的需要bit的个数（长度）
      * */
-    public BfConfiguration(String host, int port, int hashNumber, double falsePositiveRate, int estDataNumber) {
+    public BfConfiguration(String host,int port,int hashCount,double negativeRate,int dataSize) {
         this.host = host;
         this.port = port;
-        this.hashNumber = hashNumber;
-        this.falsePositiveRate = falsePositiveRate;
-        this.estDataNumber = estDataNumber;
-        this.bitLength = computeBitLength(hashNumber, falsePositiveRate, estDataNumber);
+        this.hashCount=hashCount;
+        this.negativeRate=negativeRate;
+        this.dataSize=dataSize;
+        this.bitLength = computeBitLength(hashCount,negativeRate,dataSize);
     }
     /**
      * @param host redis主机ip
      * @param port redis端口
-     * @param hashNumber 需要使用的hash算法的数量,最多15个,最少1个
-     * @param falsePositiveRate 误判率
-     * @param estDataNumber 预估要判重的数量个数
-     * 其中hashNumber,falsePositiveRate,estDataNumber会影响计算出的需要bit的个数（长度）
+     * @param hashCount 需要使用的hash算法的数量,最多15个,最少1个
+     * @param negativeRate 误判率
+     * @param dataSize 预估要判重的数量个数
+     * 其中hashNumber,negativeRate,estDataNumber会影响计算出的需要bit的个数（长度）
      * */
-    public BfConfiguration(String host, int port,String password, int hashNumber, double falsePositiveRate, int estDataNumber) {
+    public BfConfiguration(String host,int port,String password,int hashCount,double negativeRate,int dataSize) {
         this.host = host;
         this.port = port;
         this.password=password;
-        this.hashNumber = hashNumber;
-        this.falsePositiveRate = falsePositiveRate;
-        this.estDataNumber = estDataNumber;
-        this.bitLength = computeBitLength(hashNumber, falsePositiveRate, estDataNumber);
+        this.hashCount=hashCount;
+        this.negativeRate=negativeRate;
+        this.dataSize=dataSize;
+        this.bitLength = computeBitLength(hashCount,negativeRate,dataSize);
     }
     private int computeBitLength(int hashNumber, double falsePositiveRate, int estDatanumber){
         if (hashNumber > 15 || hashNumber <0){
@@ -98,28 +98,28 @@ public class BfConfiguration {
 	public void setPassword(String password) {
 		this.password = password;
 	}
-	public int getHashNumber() {
-        return hashNumber;
+	public int getHashCount() {
+        return hashCount;
     }
 
-    public void setHashNumber(int hashNumber) {
-        this.hashNumber = hashNumber;
+    public void setHashCount(int hashCount) {
+        this.hashCount=hashCount;
     }
 
-    public double getFalsePositiveRate() {
-        return falsePositiveRate;
+    public double getNegativeRate() {
+        return negativeRate;
     }
 
-    public void setFalsePositiveRate(double falsePositiveRate) {
-        this.falsePositiveRate = falsePositiveRate;
+    public void setNegativeRate(double negativeRate) {
+        this.negativeRate=negativeRate;
     }
 
-    public int getEstDataNumber() {
-        return estDataNumber;
+    public int getDataSize() {
+        return dataSize;
     }
 
-    public void setEstDataNumber(int estDataNumber) {
-        this.estDataNumber = estDataNumber;
+    public void setDataSize(int dataSize) {
+        this.dataSize=dataSize;
     }
 
     public int getBitLength() {
@@ -135,9 +135,9 @@ public class BfConfiguration {
         return "BfConfiguration{" +
                 "host='" + host + '\'' +
                 ", port=" + port +
-                ", hashNumber=" + hashNumber +
-                ", falsePositiveRate=" + falsePositiveRate +
-                ", estDataNumber=" + estDataNumber +
+                ", hashCount=" +hashCount+
+                ", negativeRate=" +negativeRate+
+                ", dataSize=" +dataSize+
                 ", bitLength=" + bitLength +
                 '}';
     }

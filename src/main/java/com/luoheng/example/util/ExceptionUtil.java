@@ -15,6 +15,8 @@ public class ExceptionUtil{
 
     public static String getTotal(Exception e){
         StringBuilder builder=new StringBuilder();
+        if(e.getCause()!=null)
+            builder.append(e.getCause().getMessage());
         for(StackTraceElement element:e.getStackTrace()){
             builder.append(e.getClass().getName()) ;
             builder.append(": ");

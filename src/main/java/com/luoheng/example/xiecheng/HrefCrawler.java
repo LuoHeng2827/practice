@@ -3,7 +3,9 @@ package com.luoheng.example.xiecheng;
 import com.google.gson.*;
 import com.luoheng.example.lcrawler.Crawler;
 import com.luoheng.example.lcrawler.CrawlerFactory;
+import com.luoheng.example.util.BloomFilter.BFUtil;
 import com.luoheng.example.util.PropertiesUtil;
+import com.luoheng.example.util.ThreadUtil;
 import com.luoheng.example.util.http.HttpClientUtil;
 import com.luoheng.example.util.redis.JedisUtil;
 import org.apache.http.HttpResponse;
@@ -72,7 +74,12 @@ public class HrefCrawler extends Crawler{
             JsonObject jsonObject=gson.fromJson(responseStr,JsonObject.class);
             JsonObject Data=jsonObject.getAsJsonObject("Data");
             if(Data.getAsJsonObject("PriceInfo").get("DepartureCityPriceList") instanceof JsonNull){
-                JedisUtil.lpush(TO_QUEUE,getTaskData());
+                if(Core.isUpdatePrice)
+                    JedisUtil.lpush(TO_QUEUE,getTaskData());
+                else{
+                    if(!BFUtil.isExist(getTaskData()))
+                        JedisUtil.lpush(TO_QUEUE,getTaskData());
+                }
                 return true;
             }
             JsonArray DepartureCityPriceList=Data.getAsJsonObject("PriceInfo")
@@ -83,7 +90,12 @@ public class HrefCrawler extends Crawler{
                 JsonArray productList=item.get("ProductIdList").getAsJsonArray();
                 for(int j=0;j<productList.size();j++){
                     String url=String.format(TEMPLATE_URL,productList.get(j).getAsString(),cityId);
-                    JedisUtil.lpush(TO_QUEUE,url);
+                    if(Core.isUpdatePrice)
+                        JedisUtil.lpush(TO_QUEUE,url);
+                    else{
+                        if(!BFUtil.isExist(getTaskData()))
+                            JedisUtil.lpush(TO_QUEUE,url);
+                    }
                 }
             }
         }
@@ -127,6 +139,7 @@ public class HrefCrawler extends Crawler{
                 e.printStackTrace();
             }
         }
+        ThreadUtil.waitSecond(2);
     }
     public static void main(String[] args){
         HrefCrawler crawler=new HrefCrawler(null);

@@ -1,4 +1,4 @@
-package com.luoheng.example.xiecheng;
+package com.luoheng.example.tuniu;
 
 import com.luoheng.example.lcrawler.BasicCrawlerFactory;
 import com.luoheng.example.lcrawler.CrawlerController;

@@ -3,7 +3,9 @@ package com.luoheng.example.xiecheng;
 import com.google.gson.*;
 import com.luoheng.example.lcrawler.Crawler;
 import com.luoheng.example.lcrawler.CrawlerFactory;
+import com.luoheng.example.util.ExceptionUtil;
 import com.luoheng.example.util.PropertiesUtil;
+import com.luoheng.example.util.ThreadUtil;
 import com.luoheng.example.util.http.HttpClientUtil;
 import com.luoheng.example.util.redis.JedisUtil;
 import org.apache.http.HttpResponse;
@@ -15,7 +17,6 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import org.yaml.snakeyaml.introspector.PropertyUtils;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -242,15 +243,15 @@ public class InfoCrawler extends Crawler{
                 return;
             }
         }catch(Exception e){
-            JedisUtil.lpush(FROM_QUEUE,taskData);
+            e.printStackTrace();
             if(e instanceof IOException){
-                e.printStackTrace();
+                JedisUtil.lpush(FROM_QUEUE,taskData);
             }
             else{
-                Core.saveErrorMsg(e.getMessage());
-                e.printStackTrace();
+                Core.saveErrorMsg(taskData+"\n"+ExceptionUtil.getTotal(e));
             }
         }
+        ThreadUtil.waitSecond(2);
     }
     public static void main(String[] args){
         InfoCrawler crawler=new InfoCrawler(null);

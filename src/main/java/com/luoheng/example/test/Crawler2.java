@@ -22,9 +22,7 @@ public class Crawler2 extends Crawler{
 
     @Override
     public String getTaskData(){
-        Jedis jedis=JedisUtil.getResource();
-        String taskData=jedis.lpop(FROM_QUEUE);
-        return taskData;
+        return "";
     }
 
     @Override
@@ -32,6 +30,6 @@ public class Crawler2 extends Crawler{
         doSomeThings();
     }
     private void doSomeThings(){
-        ThreadUtil.waitMillis(1000);
+        ThreadUtil.waitSecond(5);
     }
 }

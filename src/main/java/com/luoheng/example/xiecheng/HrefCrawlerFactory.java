@@ -2,6 +2,7 @@ package com.luoheng.example.xiecheng;
 
 import com.luoheng.example.lcrawler.BasicCrawlerFactory;
 import com.luoheng.example.lcrawler.CrawlerController;
+import com.luoheng.example.util.redis.JedisUtil;
 
 import java.util.Vector;
 
@@ -16,7 +17,7 @@ public class HrefCrawlerFactory extends BasicCrawlerFactory<HrefCrawler>{
 
     @Override
     public boolean shouldOver(){
-        return false;
+        return JedisUtil.llen(HrefCrawler.FROM_QUEUE)<=0;
     }
 
     @Override

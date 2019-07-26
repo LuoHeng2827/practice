@@ -24,6 +24,7 @@ public class Crawler1Factory extends BasicCrawlerFactory<Crawler1>{
         Vector<Crawler1> crawler1Vector=new Vector<>();
         for(int i=0; i<count; i++){
             Crawler1 crawler=new Crawler1(this);
+            crawler.setNumber(i);
             crawler1Vector.add(crawler);
         }
         return crawler1Vector;

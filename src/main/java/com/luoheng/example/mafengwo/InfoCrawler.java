@@ -6,6 +6,7 @@ import com.luoheng.example.lcrawler.CrawlerFactory;
 import com.luoheng.example.util.CodeUtil;
 import com.luoheng.example.util.ExceptionUtil;
 import com.luoheng.example.util.PropertiesUtil;
+import com.luoheng.example.util.ThreadUtil;
 import com.luoheng.example.util.http.HttpClientUtil;
 import com.luoheng.example.util.redis.JedisUtil;
 import org.apache.http.HttpEntity;
@@ -20,6 +21,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 爬取产品信息
+ */
 public class InfoCrawler extends Crawler{
     private static final String HTML_URL="http://www.mafengwo.cn/sales/%s.html";
     //获得产品基本信息的链接
@@ -28,10 +32,12 @@ public class InfoCrawler extends Crawler{
     private static final String STOCK_INFO_URL="http://www.mafengwo.cn/sales/detail/stock/info";
     //获得价格日历的相关信息
     private static final String DETAIL_URL="http://www.mafengwo.cn/sales/detail/stock/detail";
-    public static final String FROM_QUEUE="list_mafengwo_product_id";
+    public static final String FROM_QUEUE="list_mafengwo_product_task";
     public static final String TO_QUEUE="list_mafengwo_db";
     private Logger logger=LogManager.getLogger(InfoCrawler.class);
     private Gson gson;
+    private HttpResponse response;
+
     public InfoCrawler(CrawlerFactory factory){
         super(factory);
         init();
@@ -55,7 +61,6 @@ public class InfoCrawler extends Crawler{
     @Override
     public String getTaskData(){
         return JedisUtil.rpop(FROM_QUEUE);
-        //return "2466970";
     }
 
     /**
@@ -73,8 +78,9 @@ public class InfoCrawler extends Crawler{
         headers.put("Referer","http://www.mafengwo.cn/sales/6066578.html");
         bean.productId=taskData;
         bean.productLink=String.format(HTML_URL,taskData);
-        HttpResponse response=HttpClientUtil.doGet(INDEX_INFO_URL,params,headers,
+        this.response=HttpClientUtil.doGet(INDEX_INFO_URL,params,headers,
                 Boolean.valueOf(PropertiesUtil.getValue("proxy.use")),number);
+        HttpResponse response=this.response;
         if(response.getStatusLine().getStatusCode()==200){
             HttpEntity entity=response.getEntity();
             String responseStr=EntityUtils.toString(entity);
@@ -112,7 +118,13 @@ public class InfoCrawler extends Crawler{
         return true;
     }
 
-    //获取价格日历
+    /**
+     * 获取产品价格日历
+     * @param bean
+     * @param packageIds
+     * @return
+     * @throws Exception
+     */
     private boolean crawlCalendar(Bean bean,String[] packageIds) throws Exception{
         Map<String,String> params=new HashMap<>();
         Map<String,String> header=new HashMap<>();
@@ -159,7 +171,13 @@ public class InfoCrawler extends Crawler{
         return true;
     }
 
-    //获得套餐的数量和信息，并将保存的路线传给相应的套餐
+    /**
+     * 获得套餐的数量和信息，并将保存的路线传给相应的套餐
+     * @param bean
+     * @param pathList
+     * @return
+     * @throws Exception
+     */
     private boolean getStockInfo(Bean bean,List<String> pathList) throws Exception{
         Map<String,String> params=new HashMap<>();
         Map<String,String> headers=new HashMap<>();
@@ -195,7 +213,11 @@ public class InfoCrawler extends Crawler{
         }
     }
 
-    //获得路线
+    /**
+     * 爬取产品路线
+     * @param content
+     * @return
+     */
     private String crawlPath(JsonArray content){
         StringBuilder builder=new StringBuilder();
         for(int i=0;i<content.size();i++){
@@ -238,6 +260,7 @@ public class InfoCrawler extends Crawler{
                 Core.saveErrorMsg(taskData+"\n"+ExceptionUtil.getTotal(e));
             }
         }
+        ThreadUtil.waitSecond(2);
     }
     public static void main(String[] args){
         InfoCrawler crawler=new InfoCrawler(null);

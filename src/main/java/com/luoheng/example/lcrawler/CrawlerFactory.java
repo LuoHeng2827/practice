@@ -48,5 +48,6 @@ public interface CrawlerFactory<T extends Crawler> {
      */
     void inspect();
 
+    void printStatus();
 
 }

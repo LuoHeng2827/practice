@@ -1,24 +1,27 @@
-package com.luoheng.example._tuniu;
+package com.luoheng.example.mafengwo;
 
 import com.luoheng.example.lcrawler.BasicCrawlerFactory;
 import com.luoheng.example.lcrawler.CrawlerController;
 
 import java.util.Vector;
 
-public class ProductListCrawlerFactory extends BasicCrawlerFactory<ProductListCrawler> {
-    private CrawlerController controller;
+public class ProductListCrawlerFactory extends BasicCrawlerFactory<ProductListCrawler>{
     public ProductListCrawlerFactory(CrawlerController controller){
         super(controller);
-        this.controller=controller;
     }
+
+    public ProductListCrawlerFactory(CrawlerController controller,String name){
+        super(controller, name);
+    }
+
     @Override
-    public ProductListCrawler newInstance() {
+    public ProductListCrawler newInstance(){
         return new ProductListCrawler(this);
     }
 
     @Override
-    public Vector<ProductListCrawler> newVector(int count) {
-        Vector<ProductListCrawler> crawlerVector=new Vector<>(count);
+    public Vector<ProductListCrawler> newVector(int count){
+        Vector<ProductListCrawler> crawlerVector=new Vector<>();
         for(int i=0;i<count;i++){
             ProductListCrawler crawler=new ProductListCrawler(this);
             crawlerVector.add(crawler);
@@ -28,6 +31,6 @@ public class ProductListCrawlerFactory extends BasicCrawlerFactory<ProductListCr
 
     @Override
     public boolean shouldOver(){
-        return false;
+        return ProductListCrawler.shouldOver;
     }
 }

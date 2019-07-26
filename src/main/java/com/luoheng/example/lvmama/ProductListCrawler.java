@@ -6,7 +6,10 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.luoheng.example.lcrawler.Crawler;
 import com.luoheng.example.lcrawler.CrawlerFactory;
+import com.luoheng.example.util.BloomFilter.BFUtil;
 import com.luoheng.example.util.ExceptionUtil;
+import com.luoheng.example.util.PropertiesUtil;
+import com.luoheng.example.util.ThreadUtil;
 import com.luoheng.example.util.http.HttpClientUtil;
 import com.luoheng.example.util.redis.JedisUtil;
 import org.apache.http.HttpResponse;
@@ -29,10 +32,12 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+//爬取产品列表的产品链接
 public class ProductListCrawler extends Crawler{
     static boolean shouldOver=false;
     public static final String FROM_QUEUE="lvmama_task";
     public static final String TO_QUEUE="lvmama_product_href";
+    //获得产品列表的url
     private static final String CITY_LIST_URL="https://login.lvmama.com/seo_api/departureList/getDepartVo.do?channel=zhuzhan&jsoncallback=recive&callback=recive&_=1562315319265";
     //占位符为出发城市编号
     private static final String FIRST_LIST_URL="http://s.lvmama.com/group/H%sK440300?keyword=云南&tabType=route350";
@@ -99,6 +104,7 @@ public class ProductListCrawler extends Crawler{
         String taskData=JedisUtil.rpop(FROM_QUEUE);
         if(taskData==null){
             shouldOver=true;
+            getFactory().notifyOver();
             overThis();
         }
         return taskData;
@@ -108,6 +114,7 @@ public class ProductListCrawler extends Crawler{
     @Override
     public void crawl(String taskData){
         try{
+            List<String> hrefList=new ArrayList<>();
             HttpResponse response=HttpClientUtil.doGet(taskData,null,null);
             int code=response.getStatusLine().getStatusCode();
             if(code==200){
@@ -139,13 +146,24 @@ public class ProductListCrawler extends Crawler{
                         productItems=document.getElementsByClass("product-item clearfix");
                         for(Element productItem:productItems){
                             Element a=productItem.getElementsByClass("product-picture").get(0);
-                            JedisUtil.lpush(TO_QUEUE,a.attr("href"));
+                            hrefList.add(a.attr("href"));
                         }
                     }
                     else{
                         logger.info("failed to request,code is "+code);
                         JedisUtil.lpush(FROM_QUEUE,taskData);
                         return;
+                    }
+                    ThreadUtil.waitSecond(1);
+                }
+                String[] hrefs=hrefList.toArray(new String[0]);
+                for(String href:hrefs){
+                    if(Core.isUpdatePrice){
+                        JedisUtil.lpush(TO_QUEUE,href);
+                    }
+                    else{
+                        if(!BFUtil.isExist(href))
+                            JedisUtil.lpush(TO_QUEUE,href);
                     }
                 }
             }
@@ -154,13 +172,12 @@ public class ProductListCrawler extends Crawler{
                 JedisUtil.lpush(FROM_QUEUE,taskData);
             }
         }catch(Exception e){
+            e.printStackTrace();
             if(e instanceof IOException){
                 JedisUtil.lpush(FROM_QUEUE,getCurrentTask());
-                e.printStackTrace();
             }
             else{
                 Core.saveErrorMsg(taskData+"\n"+ExceptionUtil.getTotal(e));
-                e.printStackTrace();
             }
         }
     }

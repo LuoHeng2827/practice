@@ -1,42 +1,38 @@
 package com.luoheng.example.util.BloomFilter;
 
 
+import com.luoheng.example.util.PropertiesUtil;
 import com.luoheng.example.util.redis.JedisUtil;
-import redis.clients.jedis.Jedis;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class BFUtil {
-    private BfConfiguration conf = null;
-    private final int MAX_SIZE;
-    private final int HASH_TIMES;
-    private String BLOOM_NAME = "BLOOM_BITS";
-    Jedis jedis = null;
-    public BFUtil(BfConfiguration conf,String BLOOM_NAME){
-        this.conf = conf;
-        this.MAX_SIZE = conf.getBitLength();
-        this.HASH_TIMES = conf.getHashNumber();
-        this.BLOOM_NAME=BLOOM_NAME;
-		jedis= JedisUtil.getResource();
-       
+
+    private static int MAX_SIZE;
+    private static int HASH_TIMES;
+    private static String bfName;
+
+    static{
+        String ip=PropertiesUtil.getValue("redis.ip");
+        int port=Integer.parseInt(PropertiesUtil.getValue("redis.port"));
+        String passwords=PropertiesUtil.getValue("redis.passwords");
+        int dataSize=Integer.parseInt(PropertiesUtil.getValue("bf.dataSize"));
+        double negativeRate=Double.parseDouble(PropertiesUtil.getValue("bf.negativeRate"));
+        int hashCount=Integer.parseInt(PropertiesUtil.getValue("bf.hashCount"));
+        BfConfiguration conf=new BfConfiguration(ip,port,passwords,hashCount,negativeRate,dataSize);
+        MAX_SIZE=conf.getBitLength();
+        HASH_TIMES=conf.getHashCount();
+        bfName=PropertiesUtil.getValue("bf.bfName");
+        JedisUtil.setbit(bfName,MAX_SIZE,false);
     }
-    public BFUtil(BfConfiguration conf){
-        this.conf = conf;
-        this.MAX_SIZE = conf.getBitLength();
-        this.HASH_TIMES = conf.getHashNumber();
-		jedis=JedisUtil.getResource();
-    }
+
     /**
      * 
      * @param str
      * @return false 存在  true 不存在，并添加
      */
-    public boolean add(String str){
-    	
-        if (!jedis.exists(BLOOM_NAME)){
-            jedis.setbit(BLOOM_NAME,MAX_SIZE,false);
-        }
+    public static boolean add(String str){
         List<Integer> hashs = toHashs(str);
         if (isExist(hashs)){
             //判断在集合中是否存在
@@ -45,29 +41,29 @@ public class BFUtil {
             //如果不存在，将对应的hash位置为1
             for (int hash:
                  hashs) {
-                jedis.setbit(BLOOM_NAME,hash,true);
+                JedisUtil.setbit(bfName,hash,true);
             }
             return true;
         }
     }
 
-    public boolean isExist(List<Integer> hashs){
+    public static boolean isExist(List<Integer> hashs){
         boolean flag = true;
         for (int i = 0;(i < HASH_TIMES) && (flag)  ; i++) {
-            flag = flag && jedis.getbit(BLOOM_NAME,hashs.get(i));
+            flag = flag && JedisUtil.getbit(bfName,hashs.get(i));
         }
         return flag;
     }
-    public boolean isExist(String str){
+    public static boolean isExist(String str){
     	 List<Integer> hashs = toHashs(str);
         boolean flag = true;
         for (int i = 0;(i < HASH_TIMES) && (flag)  ; i++) {
-            flag = flag && jedis.getbit(BLOOM_NAME,hashs.get(i));
+            flag = flag && JedisUtil.getbit(bfName,hashs.get(i));
         }
         return flag;
     }
 
-    public List<Integer> toHashs(String url){
+    public static List<Integer> toHashs(String url){
         List<Integer> list = new ArrayList<Integer>();
         list.add(HashUtils.additiveHash(url, 47) % MAX_SIZE);
         list.add(HashUtils.rotatingHash(url, 47) % MAX_SIZE);
@@ -88,5 +84,8 @@ public class BFUtil {
             list.set(i,Math.abs(list.get(i)));
         }
         return list;
+    }
+    public static void main(String[] args){
+
     }
 }

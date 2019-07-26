@@ -1,13 +1,11 @@
-package com.luoheng.example.tongcheng;
+package com.luoheng.example.tuniu;
 
 import com.google.gson.Gson;
 import com.luoheng.example.lcrawler.Crawler;
 import com.luoheng.example.lcrawler.CrawlerFactory;
 import com.luoheng.example.util.BloomFilter.BFUtil;
-import com.luoheng.example.util.BloomFilter.BfConfiguration;
+import com.luoheng.example.util.CodeUtil;
 import com.luoheng.example.util.DBPoolUtil;
-import com.luoheng.example.util.ExceptionUtil;
-import com.luoheng.example.util.PropertiesUtil;
 import com.luoheng.example.util.ThreadUtil;
 import com.luoheng.example.util.redis.JedisUtil;
 import org.apache.logging.log4j.LogManager;
@@ -23,42 +21,44 @@ import java.util.List;
 
 //将产品的信息存储到数据库
 public class DBTaskCrawler extends Crawler{
-    public static final String FROM_QUEUE="tongcheng_product_db";
+    public static final String FROM_QUEUE="tuniu_product_db";
     private Gson gson=new Gson();
     private Logger logger=LogManager.getLogger(DBTaskCrawler.class);
     public DBTaskCrawler(CrawlerFactory factory){
         super(factory);
     }
 
+    public DBTaskCrawler(CrawlerFactory factory,String name){
+        super(factory,name);
+    }
 
+    public DBTaskCrawler(CrawlerFactory factory,String name,long crawlInterval){
+        super(factory,name,crawlInterval);
+    }
     private void saveData(String taskData){
         Bean bean=gson.fromJson(taskData,Bean.class);
-        boolean isExist=BFUtil.isExist(bean.productLink);
-        PreparedStatement preparedStatement=null;
         logger.info(bean.productLink);
+        PreparedStatement preparedStatement;
+        String uuid=ThreadUtil.getUUID();
         try{
             Connection connection=DBPoolUtil.getConnection();
             Bean.Package bPackage=bean.bPackage;
             List<Bean.Price> priceList=bean.priceList;
-            String uuid=ThreadUtil.getUUID();
-            if(!isExist){
+            if(!BFUtil.isExist(bean.productLink)){
                 preparedStatement=connection
-                        .prepareStatement("INSERT INTO TONGCHENG_TRAVEL_PRODUCT_INFO(" +
+                        .prepareStatement("INSERT INTO TUNIU_TRAVEL_PRODUCT_INFO(" +
                                 "`PROD_UNI_CODE`,`OTA_ID`,`PROD_TYPE`,`OTA_PROD_ID`,`PROD_NAME`," +
-                                "`TA_NAME`,`PACKAGE_NAME`,`TOUR_PARTY`,`PARYT_PALCE`,`TRAVEL_PLAN`,`PROD_LINK`)" +
+                                "`TA_NAME`,`PACKAGE_NAME`,`PARYT_PALCE`,`TOUR_DAYS`,`TRAVEL_PLAN`,`PROD_LINK`)" +
                                 "VALUES(?,?,?,?,?,?,?,?,?,?,?);");
                 preparedStatement.setString(1,uuid);
                 preparedStatement.setInt(2,6);
                 preparedStatement.setString(3,"1");
                 preparedStatement.setString(4,bean.productId);
-                preparedStatement.setString(5,bean.productName);
+                preparedStatement.setString(5,CodeUtil.unicodeToChinese(bean.productName));
                 preparedStatement.setString(6,bean.taName);
                 preparedStatement.setString(7,bPackage.name);
-                if(bean.musterType==Bean.SRC_MUSTER)
-                    preparedStatement.setInt(8,1);
-                else
-                    preparedStatement.setInt(8,2);
-                preparedStatement.setString(9,bean.musterPlace);
+                preparedStatement.setString(8,bean.partyPlace);
+                preparedStatement.setString(9,bean.duration);
                 preparedStatement.setString(10,bPackage.path);
                 preparedStatement.setString(11,bean.productLink);
                 preparedStatement.execute();
@@ -67,7 +67,7 @@ public class DBTaskCrawler extends Crawler{
             }
             else{
                 preparedStatement=connection.prepareStatement("SELECT PROD_UNI_CODE FROM " +
-                        " TONGCHENG_TRAVEL_PRODUCT_INFO WHERE PROD_LINK=?");
+                        " TUNIU_TRAVEL_PRODUCT_INFO WHERE PROD_LINK=?");
                 preparedStatement.setString(1,bean.productLink);
                 ResultSet resultSet=preparedStatement.executeQuery();
                 if(resultSet.next()){
@@ -78,7 +78,7 @@ public class DBTaskCrawler extends Crawler{
                     System.exit(-1);
                 }
             }
-            preparedStatement=connection.prepareStatement("INSERT INTO TONGCHENG_TRAVEL_PRODUCT_PRICE(" +
+            preparedStatement=connection.prepareStatement("INSERT INTO TUNIU_TRAVEL_PRODUCT_PRICE(" +
                     "`PROD_UNI_CODE`,`DATE`,`CITY`,`PRICE`) VALUES(?,?,?,?);");
             for(Bean.Price bPrice:priceList){
                 preparedStatement.setString(1,uuid);
@@ -100,7 +100,7 @@ public class DBTaskCrawler extends Crawler{
             connection.close();
         }catch(Exception e){
             saveFailureTask(taskData);
-            Core.saveErrorMsg(ExceptionUtil.getTotal(e));
+            Core.saveErrorMsg(e.getMessage());
             e.printStackTrace();
         }
     }

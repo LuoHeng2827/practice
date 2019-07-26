@@ -40,7 +40,7 @@ public class ProxyGetter extends Thread{
                 //logger.info("代理信息获取失败-----------------------------------------------------------------------");
             }
             else{
-            initAllProxyRedis(httpProxyList,jedisConfigList);
+                initAllProxyRedis(httpProxyList,jedisConfigList);
             }
         }catch(IOException e){
             e.printStackTrace();

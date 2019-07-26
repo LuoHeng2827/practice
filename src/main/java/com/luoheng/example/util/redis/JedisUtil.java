@@ -26,7 +26,6 @@ public class JedisUtil {
     }
 
     private static void initJedisPool(){
-
         config=new JedisPoolConfig();
         config.setMaxWaitMillis(10000L);
         config.setMaxIdle(3000);
@@ -34,9 +33,9 @@ public class JedisUtil {
         config.setMinEvictableIdleTimeMillis(60000L);
         config.setTimeBetweenEvictionRunsMillis(3000L);
         config.setNumTestsPerEvictionRun(-1);
-        String passwords=PropertiesUtil.getValue("redis_passwords",null);
-        String ip=PropertiesUtil.getValue("redis_ip","127.0.0.1");
-        String port=PropertiesUtil.getValue("redis_port","6379");
+        String passwords=PropertiesUtil.getValue("redis.passwords",null);
+        String ip=PropertiesUtil.getValue("redis.ip","127.0.0.1");
+        String port=PropertiesUtil.getValue("redis.port","6379");
         if(passwords!=null)
             jedisPool=new JedisPool(config,ip,Integer.parseInt(port),60000,passwords);
         else
@@ -98,11 +97,37 @@ public class JedisUtil {
         return data;
     }
 
+    public static void set(String key,String value){
+        Jedis jedis=getResource();
+        jedis.set(key,value);
+        jedis.close();
+    }
+
     public static long del(String... key){
         Jedis jedis=getResource();
         long num=jedis.del(key);
         jedis.close();
         return num;
+    }
+
+    public static boolean exists(String key){
+        Jedis jedis=getResource();
+        boolean isExist=jedis.exists(key);
+        jedis.close();
+        return isExist;
+    }
+
+    public static void setbit(String key,int offset,boolean value){
+        Jedis jedis=getResource();
+        jedis.setbit(key,offset,value);
+        jedis.close();
+    }
+
+    public static boolean getbit(String key,long offset){
+        Jedis jedis=getResource();
+        boolean value=jedis.getbit(key,offset);
+        jedis.close();
+        return value;
     }
 
     public static JedisPool getJedisPool() {

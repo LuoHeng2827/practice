@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.luoheng.example.lcrawler.Crawler;
 import com.luoheng.example.lcrawler.CrawlerFactory;
 import com.luoheng.example.util.PropertiesUtil;
+import com.luoheng.example.util.ThreadUtil;
 import com.luoheng.example.util.http.HttpClientUtil;
 import com.luoheng.example.util.redis.JedisUtil;
 import org.apache.http.HttpResponse;
@@ -14,13 +15,10 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import org.yaml.snakeyaml.introspector.PropertyUtils;
 
 import java.io.IOException;
 
-/**
- * 通过搜索界面获得产品链接
- */
+//爬取产品列表的产品链接
 public class ProductListCrawler extends Crawler{
     static boolean shouldOver=false;
     private static final String[] TARGET_URLS={"https://vacations.ctrip.com/tours/d-yunnan-100007/around/p%s"
@@ -114,6 +112,7 @@ public class ProductListCrawler extends Crawler{
                 e.printStackTrace();
             }
         }
+        ThreadUtil.waitSecond(2);
     }
 
     public static void main(String[] args){

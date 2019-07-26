@@ -16,7 +16,7 @@ public class CrawlerController extends Thread{
     /**
      * 默认的监视函数执行间隔
      */
-    private static final long DEFAULT_MONITOR_INTERVAL=100;
+    private static final long DEFAULT_MONITOR_INTERVAL=1000;
     /**
      * 默认的遗失任务的保存路径
      */
@@ -156,24 +156,14 @@ public class CrawlerController extends Thread{
             CrawlerFactory factory=entry.getKey();
             if(factory.isOver())
                 continue;
-            Iterator<Crawler> iterator=crawlerVector.iterator();
-            Vector<Crawler> newCrawlerVector=new Vector<>();
-            int index=0;
-            while(iterator.hasNext()){
-                Crawler crawler=iterator.next();
+            for(int i=0;i<crawlerVector.size();i++){
+                Crawler crawler=crawlerVector.get(i);
                 if(!crawler.isAlive()){
                     if(!crawler.isOver()){
-                        if(saveLostTask){
-                            try{
-                                saveLostTask(crawler.getCurrentTask());
-                            }catch(IOException e){
-                                e.printStackTrace();
-                            }
-                        }
-                        iterator.remove();
                         Crawler newCrawler=factory.newInstance();
-                        newCrawler.setNumber(index);
-                        newCrawlerVector.add(newCrawler);
+                        newCrawler.setNumber(i);
+                        crawlerVector.remove(i);
+                        crawlerVector.add(i,newCrawler);
                         newCrawler.start();
                         complete=false;
                     }
@@ -181,9 +171,7 @@ public class CrawlerController extends Thread{
                 else{
                     complete=false;
                 }
-                index++;
             }
-            crawlerVector.addAll(newCrawlerVector);
         }
     }
 
@@ -242,5 +230,11 @@ public class CrawlerController extends Thread{
 
     public boolean isComplete() {
         return complete;
+    }
+
+    public void printStatus(){
+        for(Map.Entry<CrawlerFactory,Vector<Crawler>> entry:allCrawlers.entrySet()){
+            entry.getKey().printStatus();
+        }
     }
 }
